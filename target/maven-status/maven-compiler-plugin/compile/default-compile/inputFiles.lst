@@ -36,6 +36,7 @@
 /Users/alladavletshina/study/learning-platform/src/main/java/com/example/learningplatform/entity/Tag.java
 /Users/alladavletshina/study/learning-platform/src/main/java/com/example/learningplatform/controller/UserController.java
 /Users/alladavletshina/study/learning-platform/src/main/java/com/example/learningplatform/repository/ModuleRepository.java
+/Users/alladavletshina/study/learning-platform/src/main/java/com/example/learningplatform/config/FaviconFilter.java
 /Users/alladavletshina/study/learning-platform/src/main/java/com/example/learningplatform/controller/QuizController.java
 /Users/alladavletshina/study/learning-platform/src/main/java/com/example/learningplatform/controller/AssignmentController.java
 /Users/alladavletshina/study/learning-platform/src/main/java/com/example/learningplatform/entity/AnswerOption.java

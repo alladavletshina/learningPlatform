@@ -7,6 +7,7 @@ com/example/learningplatform/LearningPlatformApplication.class
 com/example/learningplatform/repository/QuizRepository.class
 com/example/learningplatform/entity/enums/QuestionType.class
 com/example/learningplatform/service/QuizService.class
+com/example/learningplatform/config/FaviconFilter.class
 com/example/learningplatform/controller/EnrollmentController.class
 com/example/learningplatform/repository/QuizSubmissionRepository.class
 com/example/learningplatform/entity/User.class
