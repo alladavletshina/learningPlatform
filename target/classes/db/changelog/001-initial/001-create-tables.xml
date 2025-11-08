@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <!-- Users table -->
+    <changeSet id="table-1-create-users" author="your_name">
+        <comment>Create users table</comment>
+        <sql><![CDATA[
+            CREATE TABLE users (
+                id BIGSERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) NOT NULL UNIQUE,
+                role user_role NOT NULL,
+                phone VARCHAR(50),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            ]]></sql>
+    </changeSet>
+
+    <!-- Profiles table -->
+    <changeSet id="table-2-create-profiles" author="your_name">
+        <comment>Create profiles table</comment>
+        <sql><![CDATA[
+            CREATE TABLE profiles (
+                id BIGSERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL,
+                bio TEXT,
+                avatar_url VARCHAR(500),
+                website VARCHAR(255),
+                social_links TEXT
+            );
+            ]]></sql>
+    </changeSet>
+
+    <!-- Categories table -->
+    <changeSet id="table-3-create-categories" author="your_name">
+        <comment>Create categories table</comment>
+        <sql><![CDATA[
+            CREATE TABLE categories (
+                id BIGSERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL UNIQUE,
+                description TEXT
+            );
+            ]]></sql>
+    </changeSet>
+
+    <!-- Tags table -->
+    <changeSet id="table-4-create-tags" author="your_name">
+        <comment>Create tags table</comment>
+        <sql><![CDATA[
+            CREATE TABLE tags (
+                id BIGSERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL UNIQUE
+            );
+            ]]></sql>
+    </changeSet>
+
+    <!-- Courses table -->
+    <changeSet id="table-5-create-courses" author="your_name">
+        <comment>Create courses table</comment>
+        <sql><![CDATA[
+            CREATE TABLE courses (
+                id BIGSERIAL PRIMARY KEY,
+                title VARCHAR(255) NOT NULL,
+                description TEXT,
+                duration INTEGER,
+                start_date DATE,
+                end_date DATE,
+                price DECIMAL(10,2),
+                is_published BOOLEAN DEFAULT FALSE,
+                category_id BIGINT,
+                teacher_id BIGINT NOT NULL
+            );
+            ]]></sql>
+    </changeSet>
+
+    <!-- Course tags junction table -->
+    <changeSet id="table-6-create-course-tags" author="your_name">
+        <comment>Create course_tags junction table</comment>
+        <sql><![CDATA[
+            CREATE TABLE course_tags (
+                course_id BIGINT NOT NULL,
+                tag_id BIGINT NOT NULL,
+                PRIMARY KEY (course_id, tag_id)
+            );
+            ]]></sql>
+    </changeSet>
+
+    <!-- Modules table -->
+    <changeSet id="table-7-create-modules" author="your_name">
+        <comment>Create modules table</comment>
+        <sql><![CDATA[
+            CREATE TABLE modules (
+                id BIGSERIAL PRIMARY KEY,
+                title VARCHAR(255) NOT NULL,
+                description TEXT,
+                order_index INTEGER,
+                course_id BIGINT NOT NULL
+            );
+            ]]></sql>
+    </changeSet>
+
+    <!-- Lessons table -->
+    <changeSet id="table-8-create-lessons" author="your_name">
+        <comment>Create lessons table</comment>
+        <sql><![CDATA[
+            CREATE TABLE lessons (
+                id BIGSERIAL PRIMARY KEY,
+                title VARCHAR(255) NOT NULL,
+                content TEXT,
+                video_url VARCHAR(500),
+                order_index INTEGER,
+                module_id BIGINT NOT NULL
+            );
+            ]]></sql>
+    </changeSet>
+
+    <!-- Assignments table -->
+    <changeSet id="table-9-create-assignments" author="your_name">
+        <comment>Create assignments table</comment>
+        <sql><![CDATA[
+            CREATE TABLE assignments (
+                id BIGSERIAL PRIMARY KEY,
+                title VARCHAR(255) NOT NULL,
+                description TEXT,
+                due_date TIMESTAMP,
+                max_score INTEGER DEFAULT 100,
+                lesson_id BIGINT NOT NULL
+            );
+            ]]></sql>
+    </changeSet>
+
+    <!-- Quizzes table -->
+    <changeSet id="table-10-create-quizzes" author="your_name">
+        <comment>Create quizzes table</comment>
+        <sql><![CDATA[
+            CREATE TABLE quizzes (
+                id BIGSERIAL PRIMARY KEY,
+                title VARCHAR(255) NOT NULL,
+                description TEXT,
+                time_limit BIGINT,
+                module_id BIGINT,
+                course_id BIGINT
+            );
+            ]]></sql>
+    </changeSet>
+
+    <!-- Questions table -->
+    <changeSet id="table-11-create-questions" author="your_name">
+        <comment>Create questions table</comment>
+        <sql><![CDATA[
+            CREATE TABLE questions (
+                id BIGSERIAL PRIMARY KEY,
+                text TEXT NOT NULL,
+                type question_type NOT NULL,
+                points INTEGER DEFAULT 1,
+                quiz_id BIGINT NOT NULL
+            );
+            ]]></sql>
+    </changeSet>
+
+    <!-- Answer options table -->
+    <changeSet id="table-12-create-answer-options" author="your_name">
+        <comment>Create answer_options table</comment>
+        <sql><![CDATA[
+            CREATE TABLE answer_options (
+                id BIGSERIAL PRIMARY KEY,
+                text TEXT NOT NULL,
+                is_correct BOOLEAN DEFAULT FALSE,
+                question_id BIGINT NOT NULL
+            );
+            ]]></sql>
+    </changeSet>
+
+    <!-- Enrollments table -->
+    <changeSet id="table-13-create-enrollments" author="your_name">
+        <comment>Create enrollments table</comment>
+        <sql><![CDATA[
+            CREATE TABLE enrollments (
+                id BIGSERIAL PRIMARY KEY,
+                enroll_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                status enrollment_status DEFAULT 'ACTIVE',
+                progress INTEGER DEFAULT 0,
+                student_id BIGINT NOT NULL,
+                course_id BIGINT NOT NULL
+            );
+            ]]></sql>
+    </changeSet>
+
+    <!-- Submissions table -->
+    <changeSet id="table-14-create-submissions" author="your_name">
+        <comment>Create submissions table</comment>
+        <sql><![CDATA[
+            CREATE TABLE submissions (
+                id BIGSERIAL PRIMARY KEY,
+                content TEXT,
+                submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                score INTEGER,
+                feedback TEXT,
+                assignment_id BIGINT NOT NULL,
+                student_id BIGINT NOT NULL
+            );
+            ]]></sql>
+    </changeSet>
+
+    <!-- Quiz submissions table -->
+    <changeSet id="table-15-create-quiz-submissions" author="your_name">
+        <comment>Create quiz_submissions table</comment>
+        <sql><![CDATA[
+            CREATE TABLE quiz_submissions (
+                id BIGSERIAL PRIMARY KEY,
+                score INTEGER,
+                taken_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                quiz_id BIGINT NOT NULL,
+                student_id BIGINT NOT NULL
+            );
+            ]]></sql>
+    </changeSet>
+
+    <!-- Course reviews table -->
+    <changeSet id="table-16-create-course-reviews" author="your_name">
+        <comment>Create course_reviews table</comment>
+        <sql><![CDATA[
+            CREATE TABLE course_reviews (
+                id BIGSERIAL PRIMARY KEY,
+                rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+                comment TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                course_id BIGINT NOT NULL,
+                student_id BIGINT NOT NULL
+            );
+            ]]></sql>
+    </changeSet>
+
+</databaseChangeLog>

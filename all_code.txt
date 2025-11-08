@@ -1,0 +1,2719 @@
+
+# File: ./src/test/java/com/example/learningplatform/config/UserServiceIntegrationTest.java
+package com.example.learningplatform.config;
+
+import com.example.learningplatform.entity.User;
+import com.example.learningplatform.entity.enums.UserRole;
+import com.example.learningplatform.exception.ResourceNotFoundException;
+import com.example.learningplatform.repository.UserRepository;
+import com.example.learningplatform.service.UserService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringBootTest
+@ActiveProfiles("test")
+@Transactional
+class UserServiceIntegrationTest {
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    private User testUser;
+
+    @BeforeEach
+    void setUp() {
+        testUser = new User();
+        testUser.setName("John Doe");
+        testUser.setEmail("john.doe@example.com");
+        testUser.setRole(UserRole.STUDENT);
+        testUser.setPhone("+1234567890");
+    }
+
+    @Test
+    void createUser_ShouldCreateUserSuccessfully() {
+        // When
+        var result = userService.createUser(testUser);
+
+        // Then
+        assertNotNull(result.getId());
+        assertEquals("John Doe", result.getName());
+        assertEquals("john.doe@example.com", result.getEmail());
+        assertEquals(UserRole.STUDENT, result.getRole());
+    }
+
+    @Test
+    void createUser_WithDuplicateEmail_ShouldThrowException() {
+        // Given
+        userService.createUser(testUser);
+
+        // When & Then
+        User duplicateUser = new User();
+        duplicateUser.setName("Jane Doe");
+        duplicateUser.setEmail("john.doe@example.com");
+        duplicateUser.setRole(UserRole.STUDENT);
+
+        assertThrows(IllegalArgumentException.class, () -> userService.createUser(duplicateUser));
+    }
+
+    @Test
+    void getUserById_WhenUserExists_ShouldReturnUser() {
+        // Given
+        var createdUser = userService.createUser(testUser);
+
+        // When
+        var result = userService.getUserById(createdUser.getId());
+
+        // Then
+        assertNotNull(result);
+        assertEquals(createdUser.getId(), result.getId());
+        assertEquals("John Doe", result.getName());
+    }
+
+    @Test
+    void getUserById_WhenUserNotExists_ShouldThrowException() {
+        // When & Then
+        assertThrows(ResourceNotFoundException.class, () -> userService.getUserById(999L));
+    }
+
+    @Test
+    void updateUser_ShouldUpdateUserSuccessfully() {
+        // Given
+        var createdUser = userService.createUser(testUser);
+
+        User updateDetails = new User();
+        updateDetails.setName("John Updated");
+        updateDetails.setEmail("updated@example.com");
+        updateDetails.setRole(UserRole.TEACHER);
+
+        // When
+        var result = userService.updateUser(createdUser.getId(), updateDetails);
+
+        // Then
+        assertEquals("John Updated", result.getName());
+        assertEquals("updated@example.com", result.getEmail());
+        assertEquals(UserRole.TEACHER, result.getRole());
+    }
+
+    @Test
+    void deleteUser_ShouldDeleteUserSuccessfully() {
+        // Given
+        var createdUser = userService.createUser(testUser);
+
+        // When
+        userService.deleteUser(createdUser.getId());
+
+        // Then
+        assertThrows(ResourceNotFoundException.class, () -> userService.getUserById(createdUser.getId()));
+    }
+}
+# File: ./src/test/java/com/example/learningplatform/config/TestContainersConfig.java
+package com.example.learningplatform.config;
+
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
+
+@TestConfiguration
+public class TestContainersConfig {
+
+    @Bean
+    public PostgreSQLContainer<?> postgreSQLContainer() {
+        PostgreSQLContainer<?> container = new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
+                .withDatabaseName("testdb")
+                .withUsername("test")
+                .withPassword("test");
+        container.start();
+        return container;
+    }
+
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        PostgreSQLContainer<?> container = new PostgreSQLContainer<>("postgres:15-alpine")
+                .withDatabaseName("testdb")
+                .withUsername("test")
+                .withPassword("test");
+        container.start();
+
+        registry.add("spring.datasource.url", container::getJdbcUrl);
+        registry.add("spring.datasource.username", container::getUsername);
+        registry.add("spring.datasource.password", container::getPassword);
+    }
+}
+# File: ./src/test/java/com/example/learningplatform/config/CourseServiceIntegrationTest.java
+package com.example.learningplatform.config;
+
+import com.example.learningplatform.dto.CreateCourseRequest;
+import com.example.learningplatform.entity.Category;
+import com.example.learningplatform.entity.User;
+import com.example.learningplatform.entity.enums.UserRole;
+import com.example.learningplatform.repository.CategoryRepository;
+import com.example.learningplatform.repository.UserRepository;
+import com.example.learningplatform.service.CourseService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@SpringBootTest
+@ActiveProfiles("test")
+@Transactional
+class CourseServiceIntegrationTest {
+
+    @Autowired
+    private CourseService courseService;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private CategoryRepository categoryRepository;
+
+    private User teacher;
+    private Category category;
+
+    @BeforeEach
+    void setUp() {
+        teacher = new User();
+        teacher.setName("Professor X");
+        teacher.setEmail("professor@example.com");
+        teacher.setRole(UserRole.TEACHER);
+        teacher = userRepository.save(teacher);
+
+        category = new Category();
+        category.setName("Programming Extreem");
+        category.setDescription("Programming courses category");
+        category = categoryRepository.save(category);
+    }
+
+    @Test
+    void createCourse_ShouldCreateCourseSuccessfully() {
+        // Given
+        CreateCourseRequest request = new CreateCourseRequest();
+        request.setTitle("Java Programming");
+        request.setDescription("Learn Java from scratch");
+        request.setDuration(40);
+        request.setStartDate(LocalDate.now().plusDays(1));
+        request.setEndDate(LocalDate.now().plusMonths(3));
+        request.setPrice(BigDecimal.valueOf(99.99));
+        request.setCategoryId(category.getId());
+        request.setTeacherId(teacher.getId());
+        request.setTags(List.of("Java", "Programming", "Beginner"));
+
+        // When
+        var result = courseService.createCourse(request);
+
+        // Then
+        assertNotNull(result.getId());
+        assertEquals("Java Programming", result.getTitle());
+        assertEquals(40, result.getDuration());
+        assertEquals(BigDecimal.valueOf(99.99), result.getPrice());
+        assertEquals(category.getId(), result.getCategoryId());
+        assertEquals(teacher.getId(), result.getTeacherId());
+        assertFalse(result.getIsPublished());
+        assertEquals(3, result.getTags().size());
+    }
+
+    @Test
+    void publishCourse_ShouldUpdatePublishStatus() {
+        // Given
+        CreateCourseRequest request = new CreateCourseRequest();
+        request.setTitle("Test Course");
+        request.setDescription("Test Description");
+        request.setCategoryId(category.getId());
+        request.setTeacherId(teacher.getId());
+
+        var course = courseService.createCourse(request);
+        assertFalse(course.getIsPublished());
+
+        // When
+        courseService.publishCourse(course.getId());
+
+        // Then
+        var publishedCourse = courseService.getCourseById(course.getId());
+        assertTrue(publishedCourse.getIsPublished());
+    }
+
+    @Test
+    void searchCourses_ShouldReturnMatchingCourses() {
+        // Given
+        CreateCourseRequest request1 = new CreateCourseRequest();
+        request1.setTitle("Java Advanced");
+        request1.setDescription("Advanced Java programming");
+        request1.setCategoryId(category.getId());
+        request1.setTeacherId(teacher.getId());
+        courseService.createCourse(request1);
+
+        CreateCourseRequest request2 = new CreateCourseRequest();
+        request2.setTitle("Python Basics");
+        request2.setDescription("Learn Python programming");
+        request2.setCategoryId(category.getId());
+        request2.setTeacherId(teacher.getId());
+        courseService.createCourse(request2);
+
+        // When
+        var javaCourses = courseService.searchCourses("Java");
+        var pythonCourses = courseService.searchCourses("Python");
+
+        // Then
+        assertEquals(1, javaCourses.size());
+        assertEquals("Java Advanced", javaCourses.get(0).getTitle());
+
+        assertEquals(1, pythonCourses.size());
+        assertEquals("Python Basics", pythonCourses.get(0).getTitle());
+    }
+}
+# File: ./src/test/java/com/example/learningplatform/ApplicationTest.java
+package com.example.learningplatform;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+@SpringBootTest
+@ActiveProfiles("test")
+class LearningPlatformApplicationTest {
+
+    @Test
+    void contextLoads() {
+        // Проверяем, что контекст Spring загружается корректно
+        assertTrue(true, "Context should load successfully");
+    }
+
+    @Test
+    void mainMethodStartsApplication() {
+        // Проверяем, что метод main запускает приложение без ошибок
+        LearningPlatformApplication.main(new String[]{});
+        assertTrue(true, "Application should start successfully");
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/dto/QuizDTO.java
+package com.example.learningplatform.dto;
+
+import lombok.Data;
+
+import java.time.Duration;
+
+@Data
+public class QuizDTO {
+    private Long id;
+    private String title;
+    private String description;
+    private long timeLimit;
+    private Long moduleId;
+    private String moduleTitle;
+    private Long courseId;
+    private String courseTitle;
+
+}
+# File: ./src/main/java/com/example/learningplatform/dto/EnrollmentDTO.java
+package com.example.learningplatform.dto;
+
+import com.example.learningplatform.entity.enums.EnrollmentStatus;
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+@Data
+public class EnrollmentDTO {
+    private Long id;
+    private LocalDateTime enrollDate;
+    private EnrollmentStatus status;
+    private Integer progress;
+    private Long studentId;
+    private String studentName;
+    private Long courseId;
+    private String courseTitle;
+}
+# File: ./src/main/java/com/example/learningplatform/dto/AssignmentDTO.java
+package com.example.learningplatform.dto;
+
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+@Data
+public class AssignmentDTO {
+    private Long id;
+    private String title;
+    private String description;
+    private LocalDateTime dueDate;
+    private Integer maxScore;
+    private Long lessonId;
+    private String lessonTitle;
+}
+# File: ./src/main/java/com/example/learningplatform/dto/LessonDTO.java
+package com.example.learningplatform.dto;
+
+import lombok.Data;
+
+@Data
+public class LessonDTO {
+    private Long id;
+    private String title;
+    private String content;
+    private String videoUrl;
+    private Integer orderIndex;
+    private Long moduleId;
+}
+# File: ./src/main/java/com/example/learningplatform/dto/CreateCourseRequest.java
+package com.example.learningplatform.dto;
+
+import lombok.Data;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+
+@Data
+public class CreateCourseRequest {
+    private String title;
+    private String description;
+    private Integer duration;
+    private LocalDate startDate;
+    private LocalDate endDate;
+    private BigDecimal price;
+    private Long categoryId;
+    private Long teacherId;
+    private List<String> tags;
+}
+# File: ./src/main/java/com/example/learningplatform/dto/ModuleDTO.java
+package com.example.learningplatform.dto;
+
+import lombok.Data;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Data
+public class ModuleDTO {
+    private Long id;
+    private String title;
+    private String description;
+    private Integer orderIndex;
+    private Long courseId;
+    private List<LessonDTO> lessons = new ArrayList<>();
+}
+# File: ./src/main/java/com/example/learningplatform/dto/SubmissionDTO.java
+package com.example.learningplatform.dto;
+
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+@Data
+public class SubmissionDTO {
+    private Long id;
+    private String content;
+    private LocalDateTime submittedAt;
+    private Integer score;
+    private String feedback;
+    private Long assignmentId;
+    private String assignmentTitle;
+    private Long studentId;
+    private String studentName;
+}
+# File: ./src/main/java/com/example/learningplatform/dto/CourseDTO.java
+package com.example.learningplatform.dto;
+
+import lombok.Data;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+
+@Data
+public class CourseDTO {
+    private Long id;
+    private String title;
+    private String description;
+    private Integer duration;
+    private LocalDate startDate;
+    private LocalDate endDate;
+    private BigDecimal price;
+    private Boolean isPublished;
+    private Long categoryId;
+    private String categoryName;
+    private Long teacherId;
+    private String teacherName;
+    private List<ModuleDTO> modules = new ArrayList<>();
+    private List<String> tags = new ArrayList<>();
+
+}
+# File: ./src/main/java/com/example/learningplatform/dto/UserDTO.java
+package com.example.learningplatform.dto;
+
+import com.example.learningplatform.entity.enums.UserRole;
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+@Data
+public class UserDTO {
+    private Long id;
+    private String name;
+    private String email;
+    private UserRole role;
+    private String phone;
+    private LocalDateTime createdAt;
+
+    // Конструкторы
+    public UserDTO() {}
+
+    public UserDTO(Long id, String name, String email, UserRole role) {
+        this.id = id;
+        this.name = name;
+        this.email = email;
+        this.role = role;
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/dto/QuizSubmissionDTO.java
+package com.example.learningplatform.dto;
+
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+@Data
+public class QuizSubmissionDTO {
+    private Long id;
+    private Integer score;
+    private LocalDateTime takenAt;
+    private Long quizId;
+    private String quizTitle;
+    private Long studentId;
+    private String studentName;
+}
+# File: ./src/main/java/com/example/learningplatform/repository/TagRepository.java
+package com.example.learningplatform.repository;
+
+import com.example.learningplatform.entity.Tag;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+@Repository
+public interface TagRepository extends JpaRepository<Tag, Long> {
+    Optional<Tag> findByName(String name);
+    boolean existsByName(String name);
+}
+# File: ./src/main/java/com/example/learningplatform/repository/EnrollmentRepository.java
+package com.example.learningplatform.repository;
+
+import com.example.learningplatform.entity.Enrollment;
+import com.example.learningplatform.entity.enums.EnrollmentStatus;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
+    Optional<Enrollment> findByStudentIdAndCourseId(Long studentId, Long courseId);
+    List<Enrollment> findByStudentId(Long studentId);
+    List<Enrollment> findByCourseId(Long courseId);
+    List<Enrollment> findByStatus(EnrollmentStatus status);
+    boolean existsByStudentIdAndCourseId(Long studentId, Long courseId);
+
+    @Query("SELECT e FROM Enrollment e LEFT JOIN FETCH e.course WHERE e.student.id = :studentId")
+    List<Enrollment> findByStudentIdWithCourse(@Param("studentId") Long studentId);
+
+    @Query("SELECT e FROM Enrollment e LEFT JOIN FETCH e.student WHERE e.course.id = :courseId")
+    List<Enrollment> findByCourseIdWithStudent(@Param("courseId") Long courseId);
+}
+# File: ./src/main/java/com/example/learningplatform/repository/CourseRepository.java
+package com.example.learningplatform.repository;
+
+import com.example.learningplatform.entity.Course;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface CourseRepository extends JpaRepository<Course, Long> {
+    List<Course> findByCategoryId(Long categoryId);
+    List<Course> findByTeacherId(Long teacherId);
+    List<Course> findByIsPublishedTrue();
+
+    @Query("SELECT c FROM Course c LEFT JOIN FETCH c.modules WHERE c.id = :id")
+    Optional<Course> findByIdWithModules(@Param("id") Long id);
+
+    @Query("SELECT c FROM Course c LEFT JOIN FETCH c.modules LEFT JOIN FETCH c.tags WHERE c.id = :id")
+    Optional<Course> findByIdWithModulesAndTags(@Param("id") Long id);
+
+    @Query("SELECT c FROM Course c LEFT JOIN FETCH c.enrollments WHERE c.id = :id")
+    Optional<Course> findByIdWithEnrollments(@Param("id") Long id);
+
+    @Query("SELECT c FROM Course c JOIN c.tags t WHERE t.name = :tagName")
+    List<Course> findByTagName(@Param("tagName") String tagName);
+
+    @Query("SELECT c FROM Course c WHERE LOWER(c.title) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(c.description) LIKE LOWER(CONCAT('%', :query, '%'))")
+    List<Course> searchCourses(@Param("query") String query);
+}
+# File: ./src/main/java/com/example/learningplatform/repository/AssignmentRepository.java
+package com.example.learningplatform.repository;
+
+import com.example.learningplatform.entity.Assignment;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
+    List<Assignment> findByLessonId(Long lessonId);
+    List<Assignment> findByDueDateBefore(LocalDateTime dueDate);
+
+    @Query("SELECT a FROM Assignment a WHERE a.lesson.module.course.id = :courseId")
+    List<Assignment> findByCourseId(@Param("courseId") Long courseId);
+
+    @Query("SELECT a FROM Assignment a LEFT JOIN FETCH a.submissions WHERE a.id = :id")
+    Optional<Assignment> findByIdWithSubmissions(@Param("id") Long id);
+}
+# File: ./src/main/java/com/example/learningplatform/repository/CategoryRepository.java
+package com.example.learningplatform.repository;
+
+import com.example.learningplatform.entity.Category;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+@Repository
+public interface CategoryRepository extends JpaRepository<Category, Long> {
+    Optional<Category> findByName(String name);
+
+    @Query("SELECT c FROM Category c LEFT JOIN FETCH c.courses WHERE c.id = :id")
+    Optional<Category> findByIdWithCourses(@Param("id") Long id);
+}
+# File: ./src/main/java/com/example/learningplatform/repository/SubmissionRepository.java
+package com.example.learningplatform.repository;
+
+import com.example.learningplatform.entity.Submission;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface SubmissionRepository extends JpaRepository<Submission, Long> {
+    List<Submission> findByAssignmentId(Long assignmentId);
+    List<Submission> findByStudentId(Long studentId);
+    Optional<Submission> findByStudentIdAndAssignmentId(Long studentId, Long assignmentId);
+
+    @Query("SELECT s FROM Submission s LEFT JOIN FETCH s.assignment WHERE s.student.id = :studentId")
+    List<Submission> findByStudentIdWithAssignment(@Param("studentId") Long studentId);
+
+    @Query("SELECT s FROM Submission s LEFT JOIN FETCH s.student WHERE s.assignment.id = :assignmentId")
+    List<Submission> findByAssignmentIdWithStudent(@Param("assignmentId") Long assignmentId);
+}
+# File: ./src/main/java/com/example/learningplatform/repository/UserRepository.java
+package com.example.learningplatform.repository;
+
+import com.example.learningplatform.entity.User;
+import com.example.learningplatform.entity.enums.UserRole;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface UserRepository extends JpaRepository<User, Long> {
+    Optional<User> findByEmail(String email);
+    List<User> findByRole(UserRole role);
+    boolean existsByEmail(String email);
+
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.coursesTaught WHERE u.id = :id")
+    Optional<User> findByIdWithCourses(@Param("id") Long id);
+
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.enrollments WHERE u.id = :id")
+    Optional<User> findByIdWithEnrollments(@Param("id") Long id);
+}
+# File: ./src/main/java/com/example/learningplatform/repository/ModuleRepository.java
+package com.example.learningplatform.repository;
+
+import com.example.learningplatform.entity.Module;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface ModuleRepository extends JpaRepository<Module, Long> {
+    List<Module> findByCourseId(Long courseId);
+
+    @Query("SELECT m FROM Module m LEFT JOIN FETCH m.lessons WHERE m.id = :id")
+    Optional<Module> findByIdWithLessons(@Param("id") Long id);
+
+    @Query("SELECT m FROM Module m LEFT JOIN FETCH m.lessons WHERE m.course.id = :courseId ORDER BY m.orderIndex")
+    List<Module> findByCourseIdWithLessons(@Param("courseId") Long courseId);
+}
+# File: ./src/main/java/com/example/learningplatform/repository/LessonRepository.java
+package com.example.learningplatform.repository;
+
+import com.example.learningplatform.entity.Lesson;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface LessonRepository extends JpaRepository<Lesson, Long> {
+    List<Lesson> findByModuleId(Long moduleId);
+
+    @Query("SELECT l FROM Lesson l LEFT JOIN FETCH l.assignments WHERE l.id = :id")
+    Optional<Lesson> findByIdWithAssignments(@Param("id") Long id);
+
+    @Query("SELECT l FROM Lesson l LEFT JOIN FETCH l.assignments WHERE l.module.id = :moduleId ORDER BY l.orderIndex")
+    List<Lesson> findByModuleIdWithAssignments(@Param("moduleId") Long moduleId);
+}
+# File: ./src/main/java/com/example/learningplatform/repository/QuizSubmissionRepository.java
+package com.example.learningplatform.repository;
+
+import com.example.learningplatform.entity.QuizSubmission;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface QuizSubmissionRepository extends JpaRepository<QuizSubmission, Long> {
+    Optional<QuizSubmission> findByStudentIdAndQuizId(Long studentId, Long quizId);
+    List<QuizSubmission> findByStudentId(Long studentId);
+    List<QuizSubmission> findByQuizId(Long quizId);
+
+    @Query("SELECT qs FROM QuizSubmission qs LEFT JOIN FETCH qs.quiz WHERE qs.student.id = :studentId")
+    List<QuizSubmission> findByStudentIdWithQuiz(@Param("studentId") Long studentId);
+
+    @Query("SELECT qs FROM QuizSubmission qs LEFT JOIN FETCH qs.student WHERE qs.quiz.id = :quizId")
+    List<QuizSubmission> findByQuizIdWithStudent(@Param("quizId") Long quizId);
+}
+# File: ./src/main/java/com/example/learningplatform/repository/QuizRepository.java
+package com.example.learningplatform.repository;
+
+import com.example.learningplatform.entity.Quiz;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface QuizRepository extends JpaRepository<Quiz, Long> {
+    Optional<Quiz> findByModuleId(Long moduleId);
+    List<Quiz> findByCourseId(Long courseId);
+
+    @Query("SELECT q FROM Quiz q LEFT JOIN FETCH q.questions WHERE q.id = :id")
+    Optional<Quiz> findByIdWithQuestions(@Param("id") Long id);
+
+    @Query("SELECT q FROM Quiz q LEFT JOIN FETCH q.questions LEFT JOIN FETCH q.quizSubmissions WHERE q.id = :id")
+    Optional<Quiz> findByIdWithQuestionsAndSubmissions(@Param("id") Long id);
+}
+# File: ./src/main/java/com/example/learningplatform/LearningPlatformApplication.java
+package com.example.learningplatform;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class LearningPlatformApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(LearningPlatformApplication.class, args);
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/config/DataLoader.java
+package com.example.learningplatform.config;
+
+import com.example.learningplatform.entity.*;
+import com.example.learningplatform.entity.Module;
+import com.example.learningplatform.entity.enums.UserRole;
+import com.example.learningplatform.repository.*;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.List;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class DataLoader implements CommandLineRunner {
+
+    private final UserRepository userRepository;
+    private final CategoryRepository categoryRepository;
+    private final CourseRepository courseRepository;
+    private final TagRepository tagRepository;
+    private final ModuleRepository moduleRepository;
+    private final LessonRepository lessonRepository;
+    private final AssignmentRepository assignmentRepository;
+    private final EnrollmentRepository enrollmentRepository;
+
+    @Override
+    public void run(String... args) throws Exception {
+        if (userRepository.count() == 0) {
+            loadDemoData();
+        }
+    }
+
+    private void loadDemoData() {
+        log.info("Loading demo data...");
+
+        // Создание пользователей
+        User admin = createUser("Admin User", "admin@example.com", UserRole.ADMIN, "+1111111111");
+        User teacher1 = createUser("Professor Smith", "smith@example.com", UserRole.TEACHER, "+2222222222");
+        User teacher2 = createUser("Dr. Johnson", "johnson@example.com", UserRole.TEACHER, "+3333333333");
+        User student1 = createUser("Alice Brown", "alice@example.com", UserRole.STUDENT, "+4444444444");
+        User student2 = createUser("Bob Wilson", "bob@example.com", UserRole.STUDENT, "+5555555555");
+
+        // Создание категорий
+        Category programming = createCategory("Programming", "Software development courses");
+        Category design = createCategory("Design", "UI/UX and graphic design courses");
+        Category business = createCategory("Business", "Business and management courses");
+
+        // Создание тегов
+        Tag javaTag = createTag("Java");
+        Tag springTag = createTag("Spring Boot");
+        Tag pythonTag = createTag("Python");
+        Tag webTag = createTag("Web Development");
+        Tag beginnerTag = createTag("Beginner");
+        Tag advancedTag = createTag("Advanced");
+
+        // Создание курсов
+        Course javaCourse = createCourse("Java Fundamentals",
+                "Learn Java programming from scratch", 60, LocalDate.now(),
+                LocalDate.now().plusMonths(6), BigDecimal.valueOf(149.99), programming, teacher1,
+                List.of(javaTag, beginnerTag), true);
+
+        Course springCourse = createCourse("Spring Boot Masterclass",
+                "Build modern web applications with Spring Boot", 80, LocalDate.now().plusDays(7),
+                LocalDate.now().plusMonths(8), BigDecimal.valueOf(199.99), programming, teacher2,
+                List.of(javaTag, springTag, webTag, advancedTag), true);
+
+        Course pythonCourse = createCourse("Python for Data Science",
+                "Data analysis and machine learning with Python", 70, LocalDate.now().plusDays(14),
+                LocalDate.now().plusMonths(7), BigDecimal.valueOf(179.99), programming, teacher1,
+                List.of(pythonTag, beginnerTag), false);
+
+        // Создание модулей и уроков
+        createCourseStructure(javaCourse);
+
+        // Записи на курсы
+        createEnrollment(student1, javaCourse, 25);
+        createEnrollment(student2, javaCourse, 50);
+        createEnrollment(student1, springCourse, 10);
+
+        log.info("Demo data loaded successfully!");
+    }
+
+    private User createUser(String name, String email, UserRole role, String phone) {
+        User user = new User();
+        user.setName(name);
+        user.setEmail(email);
+        user.setRole(role);
+        user.setPhone(phone);
+        return userRepository.save(user);
+    }
+
+    private Category createCategory(String name, String description) {
+        Category category = new Category();
+        category.setName(name);
+        category.setDescription(description);
+        return categoryRepository.save(category);
+    }
+
+    private Tag createTag(String name) {
+        return tagRepository.findByName(name)
+                .orElseGet(() -> {
+                    Tag tag = new Tag();
+                    tag.setName(name);
+                    return tagRepository.save(tag);
+                });
+    }
+
+    private Course createCourse(String title, String description, int duration,
+                                LocalDate startDate, LocalDate endDate, BigDecimal price,
+                                Category category, User teacher, List<Tag> tags, boolean published) {
+        Course course = new Course();
+        course.setTitle(title);
+        course.setDescription(description);
+        course.setDuration(duration);
+        course.setStartDate(startDate);
+        course.setEndDate(endDate);
+        course.setPrice(price);
+        course.setCategory(category);
+        course.setTeacher(teacher);
+        course.setIsPublished(published);
+        course.setTags(new HashSet<>(tags));
+        return courseRepository.save(course);
+    }
+
+    private void createCourseStructure(Course course) {
+        // Модуль 1
+        Module module1 = new Module();
+        module1.setTitle("Introduction to Java");
+        module1.setDescription("Java basics and setup");
+        module1.setOrderIndex(1);
+        module1.setCourse(course);
+        module1 = moduleRepository.save(module1);
+
+        Lesson lesson1 = new Lesson();
+        lesson1.setTitle("What is Java?");
+        lesson1.setContent("Java is a popular programming language...");
+        lesson1.setVideoUrl("https://example.com/video1");
+        lesson1.setOrderIndex(1);
+        lesson1.setModule(module1);
+        lessonRepository.save(lesson1);
+
+        Lesson lesson2 = new Lesson();
+        lesson2.setTitle("Setting up Development Environment");
+        lesson2.setContent("Install JDK and IDE...");
+        lesson2.setVideoUrl("https://example.com/video2");
+        lesson2.setOrderIndex(2);
+        lesson2.setModule(module1);
+        lessonRepository.save(lesson2);
+
+        // Модуль 2
+        Module module2 = new Module();
+        module2.setTitle("Object-Oriented Programming");
+        module2.setDescription("OOP concepts in Java");
+        module2.setOrderIndex(2);
+        module2.setCourse(course);
+        module2 = moduleRepository.save(module2);
+
+        Lesson lesson3 = new Lesson();
+        lesson3.setTitle("Classes and Objects");
+        lesson3.setContent("Understanding classes and objects...");
+        lesson3.setVideoUrl("https://example.com/video3");
+        lesson3.setOrderIndex(1);
+        lesson3.setModule(module2);
+        lessonRepository.save(lesson3);
+
+        // Задание
+        Assignment assignment = new Assignment();
+        assignment.setTitle("First Java Program");
+        assignment.setDescription("Write a simple Hello World program");
+        assignment.setDueDate(LocalDateTime.now().plusDays(7));
+        assignment.setMaxScore(100);
+        assignment.setLesson(lesson3);
+        assignmentRepository.save(assignment);
+    }
+
+    private void createEnrollment(User student, Course course, int progress) {
+        Enrollment enrollment = new Enrollment();
+        enrollment.setStudent(student);
+        enrollment.setCourse(course);
+        enrollment.setProgress(progress);
+        enrollmentRepository.save(enrollment);
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/entity/QuizSubmission.java
+package com.example.learningplatform.entity;
+
+import jakarta.persistence.*;
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+@Data
+@Entity
+@Table(name = "quiz_submissions",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"student_id", "quiz_id"}))
+public class QuizSubmission {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private Integer score;
+
+    @Column(name = "taken_at")
+    private LocalDateTime takenAt;
+
+    // Связи
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "quiz_id", nullable = false)
+    private Quiz quiz;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "student_id", nullable = false)
+    private User student;
+
+    @PrePersist
+    protected void onCreate() {
+        takenAt = LocalDateTime.now();
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/entity/Profile.java
+package com.example.learningplatform.entity;
+
+import jakarta.persistence.*;
+import lombok.Data;
+
+@Data
+@Entity
+@Table(name = "profiles")
+public class Profile {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    private String bio;
+
+    @Column(name = "avatar_url")
+    private String avatarUrl;
+
+    private String website;
+
+    @Column(name = "social_links")
+    private String socialLinks;
+}
+# File: ./src/main/java/com/example/learningplatform/entity/Lesson.java
+package com.example.learningplatform.entity;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Data
+@Entity
+@Table(name = "lessons")
+public class Lesson {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String title;
+
+    @Column(columnDefinition = "TEXT")
+    private String content;
+
+    @Column(name = "video_url")
+    private String videoUrl;
+
+    @Column(name = "order_index")
+    private Integer orderIndex;
+
+    // Связи
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "module_id", nullable = false)
+    private Module module;
+
+    @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Assignment> assignments = new ArrayList<>();
+}
+# File: ./src/main/java/com/example/learningplatform/entity/Module.java
+package com.example.learningplatform.entity;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Data
+@Entity
+@Table(name = "modules")
+public class Module {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String title;
+
+    private String description;
+
+    @Column(name = "order_index")
+    private Integer orderIndex;
+
+    // Связи
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "course_id", nullable = false)
+    private Course course;
+
+    @OneToMany(mappedBy = "module", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Lesson> lessons = new ArrayList<>();
+
+    @OneToOne(mappedBy = "module", fetch = FetchType.LAZY)
+    private Quiz quiz;
+}
+# File: ./src/main/java/com/example/learningplatform/entity/Tag.java
+package com.example.learningplatform.entity;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
+
+import java.util.HashSet;
+import java.util.Set;
+
+@Data
+@Entity
+@Table(name = "tags")
+public class Tag {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true)
+    private String name;
+
+    @ManyToMany(mappedBy = "tags", fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Set<Course> courses = new HashSet<>();
+}
+# File: ./src/main/java/com/example/learningplatform/entity/Submission.java
+package com.example.learningplatform.entity;
+
+import jakarta.persistence.*;
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+@Data
+@Entity
+@Table(name = "submissions",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"student_id", "assignment_id"}))
+public class Submission {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(columnDefinition = "TEXT")
+    private String content;
+
+    @Column(name = "submitted_at")
+    private LocalDateTime submittedAt;
+
+    private Integer score;
+
+    @Column(columnDefinition = "TEXT")
+    private String feedback;
+
+    // Связи
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignment_id", nullable = false)
+    private Assignment assignment;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "student_id", nullable = false)
+    private User student;
+
+    @PrePersist
+    protected void onCreate() {
+        submittedAt = LocalDateTime.now();
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/entity/enums/EnrollmentStatus.java
+package com.example.learningplatform.entity.enums;
+
+public enum EnrollmentStatus {
+    ACTIVE,
+    COMPLETED,
+    DROPPED
+}
+
+# File: ./src/main/java/com/example/learningplatform/entity/enums/UserRole.java
+package com.example.learningplatform.entity.enums;
+
+public enum UserRole {
+    STUDENT,
+    TEACHER,
+    ADMIN
+}
+# File: ./src/main/java/com/example/learningplatform/entity/enums/QuestionType.java
+package com.example.learningplatform.entity.enums;
+
+public enum QuestionType {
+    SINGLE_CHOICE,
+    MULTIPLE_CHOICE,
+    TEXT
+}
+
+# File: ./src/main/java/com/example/learningplatform/entity/Category.java
+package com.example.learningplatform.entity;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Data
+@Entity
+@Table(name = "categories")
+public class Category {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true)
+    private String name;
+
+    private String description;
+
+    @OneToMany(mappedBy = "category", fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Course> courses = new ArrayList<>();
+}
+# File: ./src/main/java/com/example/learningplatform/entity/User.java
+package com.example.learningplatform.entity;
+
+import com.example.learningplatform.entity.enums.UserRole;
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+@Data
+@Entity
+@Table(name = "users")
+public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String name;
+
+    @Column(nullable = false, unique = true)
+    private String email;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserRole role;
+
+    private String phone;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    // Связи
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Profile profile;
+
+    @OneToMany(mappedBy = "teacher", fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Course> coursesTaught = new ArrayList<>();
+
+    @OneToMany(mappedBy = "student", fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Enrollment> enrollments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "student", fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Submission> submissions = new ArrayList<>();
+
+    @OneToMany(mappedBy = "student", fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<QuizSubmission> quizSubmissions = new ArrayList<>();
+
+    @OneToMany(mappedBy = "student", fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<CourseReview> reviews = new ArrayList<>();
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/entity/Quiz.java
+package com.example.learningplatform.entity;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+
+@Data
+@Entity
+@Table(name = "quizzes")
+public class Quiz {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String title;
+
+    private String description;
+
+    @Column(name = "time_limit")
+    private long timeLimit;
+
+    // Связи
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "module_id")
+    private Module module;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "course_id")
+    private Course course;
+
+    @OneToMany(mappedBy = "quiz", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Question> questions = new ArrayList<>();
+
+    @OneToMany(mappedBy = "quiz", fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<QuizSubmission> quizSubmissions = new ArrayList<>();
+}
+# File: ./src/main/java/com/example/learningplatform/entity/AnswerOption.java
+package com.example.learningplatform.entity;
+
+import jakarta.persistence.*;
+import lombok.Data;
+
+@Data
+@Entity
+@Table(name = "answer_options")
+public class AnswerOption {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private String text;
+
+    @Column(name = "is_correct")
+    private Boolean isCorrect = false;
+
+    // Связи
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "question_id", nullable = false)
+    private Question question;
+}
+# File: ./src/main/java/com/example/learningplatform/entity/Question.java
+package com.example.learningplatform.entity;
+
+import com.example.learningplatform.entity.enums.QuestionType;
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Data
+@Entity
+@Table(name = "questions")
+public class Question {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private String text;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private QuestionType type;
+
+    private Integer points = 1;
+
+    // Связи
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "quiz_id", nullable = false)
+    private Quiz quiz;
+
+    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<AnswerOption> options = new ArrayList<>();
+}
+# File: ./src/main/java/com/example/learningplatform/entity/CourseReview.java
+package com.example.learningplatform.entity;
+
+import jakarta.persistence.*;
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+@Data
+@Entity
+@Table(name = "course_reviews",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"student_id", "course_id"}))
+public class CourseReview {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private Integer rating; // 1-5
+
+    @Column(columnDefinition = "TEXT")
+    private String comment;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
+    // Связи
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "course_id", nullable = false)
+    private Course course;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "student_id", nullable = false)
+    private User student;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/entity/Course.java
+package com.example.learningplatform.entity;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+@Data
+@Entity
+@Table(name = "courses")
+public class Course {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String title;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    private Integer duration;
+
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    @Column(name = "end_date")
+    private LocalDate endDate;
+
+    private BigDecimal price;
+
+    @Column(name = "is_published")
+    private Boolean isPublished = false;
+
+    // Связи
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private Category category;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "teacher_id", nullable = false)
+    private User teacher;
+
+    @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Module> modules = new ArrayList<>();
+
+    @OneToMany(mappedBy = "course", fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Enrollment> enrollments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "course", fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<CourseReview> reviews = new ArrayList<>();
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "course_tags",
+            joinColumns = @JoinColumn(name = "course_id"),
+            inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Set<Tag> tags = new HashSet<>();
+
+    @OneToMany(mappedBy = "course", fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Quiz> quizzes = new ArrayList<>();
+
+}
+# File: ./src/main/java/com/example/learningplatform/entity/Assignment.java
+package com.example.learningplatform.entity;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+@Data
+@Entity
+@Table(name = "assignments")
+public class Assignment {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String title;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    @Column(name = "due_date")
+    private LocalDateTime dueDate;
+
+    @Column(name = "max_score")
+    private Integer maxScore = 100;
+
+    // Связи
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "lesson_id", nullable = false)
+    private Lesson lesson;
+
+    @OneToMany(mappedBy = "assignment", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Submission> submissions = new ArrayList<>();
+}
+# File: ./src/main/java/com/example/learningplatform/entity/Enrollment.java
+package com.example.learningplatform.entity;
+
+import com.example.learningplatform.entity.enums.EnrollmentStatus;
+import jakarta.persistence.*;
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+@Data
+@Entity
+@Table(name = "enrollments",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"student_id", "course_id"}))
+public class Enrollment {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "enroll_date")
+    private LocalDateTime enrollDate;
+
+    @Enumerated(EnumType.STRING)
+    private EnrollmentStatus status = EnrollmentStatus.ACTIVE;
+
+    private Integer progress = 0; // в процентах
+
+    // Связи
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "student_id", nullable = false)
+    private User student;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "course_id", nullable = false)
+    private Course course;
+
+    @PrePersist
+    protected void onCreate() {
+        enrollDate = LocalDateTime.now();
+    }
+}
+
+# File: ./src/main/java/com/example/learningplatform/controller/CourseController.java
+package com.example.learningplatform.controller;
+
+import com.example.learningplatform.dto.CourseDTO;
+import com.example.learningplatform.dto.CreateCourseRequest;
+import com.example.learningplatform.service.CourseService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/courses")
+@RequiredArgsConstructor
+public class CourseController {
+
+    private final CourseService courseService;
+
+    @PostMapping
+    public ResponseEntity<CourseDTO> createCourse(@Valid @RequestBody CreateCourseRequest request) {
+        CourseDTO course = courseService.createCourse(request);
+        return ResponseEntity.ok(course);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<CourseDTO>> getAllCourses() {
+        List<CourseDTO> courses = courseService.getAllCourses();
+        return ResponseEntity.ok(courses);
+    }
+
+    @GetMapping("/published")
+    public ResponseEntity<List<CourseDTO>> getPublishedCourses() {
+        List<CourseDTO> courses = courseService.getPublishedCourses();
+        return ResponseEntity.ok(courses);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<CourseDTO> getCourseById(@PathVariable Long id) {
+        CourseDTO course = courseService.getCourseById(id);
+        return ResponseEntity.ok(course);
+    }
+
+    @GetMapping("/{id}/detailed")
+    public ResponseEntity<CourseDTO> getCourseWithModules(@PathVariable Long id) {
+        CourseDTO course = courseService.getCourseWithModules(id);
+        return ResponseEntity.ok(course);
+    }
+
+    @GetMapping("/category/{categoryId}")
+    public ResponseEntity<List<CourseDTO>> getCoursesByCategory(@PathVariable Long categoryId) {
+        List<CourseDTO> courses = courseService.getCoursesByCategory(categoryId);
+        return ResponseEntity.ok(courses);
+    }
+
+    @GetMapping("/teacher/{teacherId}")
+    public ResponseEntity<List<CourseDTO>> getCoursesByTeacher(@PathVariable Long teacherId) {
+        List<CourseDTO> courses = courseService.getCoursesByTeacher(teacherId);
+        return ResponseEntity.ok(courses);
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<CourseDTO>> searchCourses(@RequestParam String query) {
+        List<CourseDTO> courses = courseService.searchCourses(query);
+        return ResponseEntity.ok(courses);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<CourseDTO> updateCourse(@PathVariable Long id, @Valid @RequestBody CreateCourseRequest request) {
+        CourseDTO updatedCourse = courseService.updateCourse(id, request);
+        return ResponseEntity.ok(updatedCourse);
+    }
+
+    @PostMapping("/{id}/publish")
+    public ResponseEntity<Void> publishCourse(@PathVariable Long id) {
+        courseService.publishCourse(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{id}/unpublish")
+    public ResponseEntity<Void> unpublishCourse(@PathVariable Long id) {
+        courseService.unpublishCourse(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteCourse(@PathVariable Long id) {
+        courseService.deleteCourse(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/controller/EnrollmentController.java
+package com.example.learningplatform.controller;
+
+import com.example.learningplatform.dto.EnrollmentDTO;
+import com.example.learningplatform.entity.enums.EnrollmentStatus;
+import com.example.learningplatform.service.EnrollmentService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/enrollments")
+@RequiredArgsConstructor
+public class EnrollmentController {
+
+    private final EnrollmentService enrollmentService;
+
+    @PostMapping
+    public ResponseEntity<EnrollmentDTO> enrollStudent(
+            @RequestParam Long studentId,
+            @RequestParam Long courseId) {
+        EnrollmentDTO enrollment = enrollmentService.enrollStudent(studentId, courseId);
+        return ResponseEntity.ok(enrollment);
+    }
+
+    @DeleteMapping
+    public ResponseEntity<Void> unenrollStudent(
+            @RequestParam Long studentId,
+            @RequestParam Long courseId) {
+        enrollmentService.unenrollStudent(studentId, courseId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/student/{studentId}")
+    public ResponseEntity<List<EnrollmentDTO>> getEnrollmentsByStudent(@PathVariable Long studentId) {
+        List<EnrollmentDTO> enrollments = enrollmentService.getEnrollmentsByStudent(studentId);
+        return ResponseEntity.ok(enrollments);
+    }
+
+    @GetMapping("/course/{courseId}")
+    public ResponseEntity<List<EnrollmentDTO>> getEnrollmentsByCourse(@PathVariable Long courseId) {
+        List<EnrollmentDTO> enrollments = enrollmentService.getEnrollmentsByCourse(courseId);
+        return ResponseEntity.ok(enrollments);
+    }
+
+    @PutMapping("/{enrollmentId}/status")
+    public ResponseEntity<EnrollmentDTO> updateEnrollmentStatus(
+            @PathVariable Long enrollmentId,
+            @RequestParam EnrollmentStatus status) {
+        EnrollmentDTO enrollment = enrollmentService.updateEnrollmentStatus(enrollmentId, status);
+        return ResponseEntity.ok(enrollment);
+    }
+
+    @PutMapping("/{enrollmentId}/progress")
+    public ResponseEntity<EnrollmentDTO> updateProgress(
+            @PathVariable Long enrollmentId,
+            @RequestParam Integer progress) {
+        EnrollmentDTO enrollment = enrollmentService.updateProgress(enrollmentId, progress);
+        return ResponseEntity.ok(enrollment);
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/controller/AssignmentController.java
+package com.example.learningplatform.controller;
+
+import com.example.learningplatform.dto.AssignmentDTO;
+import com.example.learningplatform.dto.SubmissionDTO;
+import com.example.learningplatform.entity.Assignment;
+import com.example.learningplatform.service.AssignmentService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/assignments")
+@RequiredArgsConstructor
+public class AssignmentController {
+
+    private final AssignmentService assignmentService;
+
+    @PostMapping("/lesson/{lessonId}")
+    public ResponseEntity<AssignmentDTO> createAssignment(
+            @PathVariable Long lessonId,
+            @RequestBody Assignment assignment) {
+        AssignmentDTO createdAssignment = assignmentService.createAssignment(assignment, lessonId);
+        return ResponseEntity.ok(createdAssignment);
+    }
+
+    @PostMapping("/{assignmentId}/submit")
+    public ResponseEntity<SubmissionDTO> submitAssignment(
+            @PathVariable Long assignmentId,
+            @RequestParam Long studentId,
+            @RequestParam String content) {
+        SubmissionDTO submission = assignmentService.submitAssignment(assignmentId, studentId, content);
+        return ResponseEntity.ok(submission);
+    }
+
+    @PutMapping("/submissions/{submissionId}/grade")
+    public ResponseEntity<SubmissionDTO> gradeSubmission(
+            @PathVariable Long submissionId,
+            @RequestParam Integer score,
+            @RequestParam(required = false) String feedback) {
+        SubmissionDTO submission = assignmentService.gradeSubmission(submissionId, score, feedback);
+        return ResponseEntity.ok(submission);
+    }
+
+    @GetMapping("/{assignmentId}/submissions")
+    public ResponseEntity<List<SubmissionDTO>> getSubmissionsByAssignment(@PathVariable Long assignmentId) {
+        List<SubmissionDTO> submissions = assignmentService.getSubmissionsByAssignment(assignmentId);
+        return ResponseEntity.ok(submissions);
+    }
+
+    @GetMapping("/student/{studentId}/submissions")
+    public ResponseEntity<List<SubmissionDTO>> getSubmissionsByStudent(@PathVariable Long studentId) {
+        List<SubmissionDTO> submissions = assignmentService.getSubmissionsByStudent(studentId);
+        return ResponseEntity.ok(submissions);
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/controller/QuizController.java
+package com.example.learningplatform.controller;
+
+import com.example.learningplatform.dto.QuizDTO;
+import com.example.learningplatform.dto.QuizSubmissionDTO;
+import com.example.learningplatform.entity.Quiz;
+import com.example.learningplatform.service.QuizService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/quizzes")
+@RequiredArgsConstructor
+public class QuizController {
+
+    private final QuizService quizService;
+
+    @PostMapping
+    public ResponseEntity<QuizDTO> createQuiz(@RequestBody Quiz quiz) {
+        QuizDTO createdQuiz = quizService.createQuiz(quiz);
+        return ResponseEntity.ok(createdQuiz);
+    }
+
+    @PostMapping("/{quizId}/submit")
+    public ResponseEntity<QuizSubmissionDTO> submitQuiz(
+            @PathVariable Long quizId,
+            @RequestParam Long studentId,
+            @RequestBody Map<Long, Long> answers) {
+        QuizSubmissionDTO submission = quizService.submitQuiz(quizId, studentId, answers);
+        return ResponseEntity.ok(submission);
+    }
+
+    @GetMapping("/student/{studentId}/submissions")
+    public ResponseEntity<List<QuizSubmissionDTO>> getSubmissionsByStudent(@PathVariable Long studentId) {
+        List<QuizSubmissionDTO> submissions = quizService.getQuizSubmissionsByStudent(studentId);
+        return ResponseEntity.ok(submissions);
+    }
+
+    @GetMapping("/{quizId}/submissions")
+    public ResponseEntity<List<QuizSubmissionDTO>> getSubmissionsByQuiz(@PathVariable Long quizId) {
+        List<QuizSubmissionDTO> submissions = quizService.getQuizSubmissionsByQuiz(quizId);
+        return ResponseEntity.ok(submissions);
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/controller/UserController.java
+package com.example.learningplatform.controller;
+
+import com.example.learningplatform.dto.UserDTO;
+import com.example.learningplatform.entity.User;
+import com.example.learningplatform.entity.enums.UserRole;
+import com.example.learningplatform.service.UserService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/users")
+@RequiredArgsConstructor
+public class UserController {
+
+    private final UserService userService;
+
+    @PostMapping
+    public ResponseEntity<UserDTO> createUser(@Valid @RequestBody User user) {
+        UserDTO createdUser = userService.createUser(user);
+        return ResponseEntity.ok(createdUser);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<UserDTO>> getAllUsers() {
+        List<UserDTO> users = userService.getAllUsers();
+        return ResponseEntity.ok(users);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<UserDTO> getUserById(@PathVariable Long id) {
+        UserDTO user = userService.getUserById(id);
+        return ResponseEntity.ok(user);
+    }
+
+    @GetMapping("/role/{role}")
+    public ResponseEntity<List<UserDTO>> getUsersByRole(@PathVariable UserRole role) {
+        List<UserDTO> users = userService.getUsersByRole(role);
+        return ResponseEntity.ok(users);
+    }
+
+    @GetMapping("/{id}/courses")
+    public ResponseEntity<UserDTO> getUserWithCourses(@PathVariable Long id) {
+        UserDTO user = userService.getUserWithCourses(id);
+        return ResponseEntity.ok(user);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<UserDTO> updateUser(@PathVariable Long id, @Valid @RequestBody User userDetails) {
+        UserDTO updatedUser = userService.updateUser(id, userDetails);
+        return ResponseEntity.ok(updatedUser);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+        userService.deleteUser(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/service/EnrollmentService.java
+package com.example.learningplatform.service;
+
+import com.example.learningplatform.dto.EnrollmentDTO;
+import com.example.learningplatform.entity.Course;
+import com.example.learningplatform.entity.Enrollment;
+import com.example.learningplatform.entity.User;
+import com.example.learningplatform.entity.enums.EnrollmentStatus;
+import com.example.learningplatform.exception.ResourceNotFoundException;
+import com.example.learningplatform.repository.CourseRepository;
+import com.example.learningplatform.repository.EnrollmentRepository;
+import com.example.learningplatform.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class EnrollmentService {
+
+    private final EnrollmentRepository enrollmentRepository;
+    private final UserRepository userRepository;
+    private final CourseRepository courseRepository;
+
+    public EnrollmentDTO enrollStudent(Long studentId, Long courseId) {
+        if (enrollmentRepository.existsByStudentIdAndCourseId(studentId, courseId)) {
+            throw new IllegalArgumentException("Student is already enrolled in this course");
+        }
+
+        User student = userRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
+
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
+
+        Enrollment enrollment = new Enrollment();
+        enrollment.setStudent(student);
+        enrollment.setCourse(course);
+        enrollment.setStatus(EnrollmentStatus.ACTIVE);
+        enrollment.setProgress(0);
+
+        Enrollment savedEnrollment = enrollmentRepository.save(enrollment);
+        log.info("Student {} enrolled in course {}", studentId, courseId);
+        return convertToDTO(savedEnrollment);
+    }
+
+    public void unenrollStudent(Long studentId, Long courseId) {
+        Enrollment enrollment = enrollmentRepository.findByStudentIdAndCourseId(studentId, courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found for student " + studentId + " and course " + courseId));
+
+        enrollmentRepository.delete(enrollment);
+        log.info("Student {} unenrolled from course {}", studentId, courseId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<EnrollmentDTO> getEnrollmentsByStudent(Long studentId) {
+        return enrollmentRepository.findByStudentIdWithCourse(studentId).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<EnrollmentDTO> getEnrollmentsByCourse(Long courseId) {
+        return enrollmentRepository.findByCourseIdWithStudent(courseId).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    public EnrollmentDTO updateEnrollmentStatus(Long enrollmentId, EnrollmentStatus status) {
+        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found with id: " + enrollmentId));
+
+        enrollment.setStatus(status);
+        Enrollment updatedEnrollment = enrollmentRepository.save(enrollment);
+        log.info("Updated enrollment {} status to {}", enrollmentId, status);
+        return convertToDTO(updatedEnrollment);
+    }
+
+    public EnrollmentDTO updateProgress(Long enrollmentId, Integer progress) {
+        if (progress < 0 || progress > 100) {
+            throw new IllegalArgumentException("Progress must be between 0 and 100");
+        }
+
+        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found with id: " + enrollmentId));
+
+        enrollment.setProgress(progress);
+        Enrollment updatedEnrollment = enrollmentRepository.save(enrollment);
+        log.info("Updated enrollment {} progress to {}", enrollmentId, progress);
+        return convertToDTO(updatedEnrollment);
+    }
+
+    private EnrollmentDTO convertToDTO(Enrollment enrollment) {
+        EnrollmentDTO dto = new EnrollmentDTO();
+        dto.setId(enrollment.getId());
+        dto.setEnrollDate(enrollment.getEnrollDate());
+        dto.setStatus(enrollment.getStatus());
+        dto.setProgress(enrollment.getProgress());
+        dto.setStudentId(enrollment.getStudent().getId());
+        dto.setStudentName(enrollment.getStudent().getName());
+        dto.setCourseId(enrollment.getCourse().getId());
+        dto.setCourseTitle(enrollment.getCourse().getTitle());
+        return dto;
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/service/UserService.java
+package com.example.learningplatform.service;
+
+import com.example.learningplatform.dto.UserDTO;
+import com.example.learningplatform.entity.User;
+import com.example.learningplatform.entity.enums.UserRole;
+import com.example.learningplatform.exception.ResourceNotFoundException;
+import com.example.learningplatform.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class UserService {
+
+    private final UserRepository userRepository;
+
+    public UserDTO createUser(User user) {
+        if (userRepository.existsByEmail(user.getEmail())) {
+            throw new IllegalArgumentException("User with email " + user.getEmail() + " already exists");
+        }
+
+        User savedUser = userRepository.save(user);
+        log.info("Created user with id: {}", savedUser.getId());
+        return convertToDTO(savedUser);
+    }
+
+    @Transactional(readOnly = true)
+    public UserDTO getUserById(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        return convertToDTO(user);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserDTO> getAllUsers() {
+        return userRepository.findAll().stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserDTO> getUsersByRole(UserRole role) {
+        return userRepository.findByRole(role).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    public UserDTO updateUser(Long id, User userDetails) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+
+        user.setName(userDetails.getName());
+        user.setEmail(userDetails.getEmail());
+        user.setRole(userDetails.getRole());
+        user.setPhone(userDetails.getPhone());
+
+        User updatedUser = userRepository.save(user);
+        log.info("Updated user with id: {}", id);
+        return convertToDTO(updatedUser);
+    }
+
+    public void deleteUser(Long id) {
+        if (!userRepository.existsById(id)) {
+            throw new ResourceNotFoundException("User not found with id: " + id);
+        }
+        userRepository.deleteById(id);
+        log.info("Deleted user with id: {}", id);
+    }
+
+    @Transactional(readOnly = true)
+    public UserDTO getUserWithCourses(Long id) {
+        User user = userRepository.findByIdWithCourses(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        return convertToDTO(user);
+    }
+
+    private UserDTO convertToDTO(User user) {
+        UserDTO dto = new UserDTO();
+        dto.setId(user.getId());
+        dto.setName(user.getName());
+        dto.setEmail(user.getEmail());
+        dto.setRole(user.getRole());
+        dto.setPhone(user.getPhone());
+        dto.setCreatedAt(user.getCreatedAt());
+        return dto;
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/service/QuizService.java
+package com.example.learningplatform.service;
+
+import com.example.learningplatform.dto.QuizDTO;
+import com.example.learningplatform.dto.QuizSubmissionDTO;
+import com.example.learningplatform.entity.*;
+import com.example.learningplatform.exception.ResourceNotFoundException;
+import com.example.learningplatform.repository.QuizRepository;
+import com.example.learningplatform.repository.QuizSubmissionRepository;
+import com.example.learningplatform.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class QuizService {
+
+    private final QuizRepository quizRepository;
+    private final QuizSubmissionRepository quizSubmissionRepository;
+    private final UserRepository userRepository;
+
+    public QuizDTO createQuiz(Quiz quiz) {
+        Quiz savedQuiz = quizRepository.save(quiz);
+        log.info("Created quiz with id: {}", savedQuiz.getId());
+        return convertToDTO(savedQuiz);
+    }
+
+    public QuizSubmissionDTO submitQuiz(Long quizId, Long studentId, Map<Long, Long> answers) {
+        Quiz quiz = quizRepository.findByIdWithQuestions(quizId)
+                .orElseThrow(() -> new ResourceNotFoundException("Quiz not found with id: " + quizId));
+
+        User student = userRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
+
+        // Проверяем, не проходил ли студент уже этот тест
+        quizSubmissionRepository.findByStudentIdAndQuizId(studentId, quizId)
+                .ifPresent(submission -> {
+                    throw new IllegalArgumentException("Student has already taken this quiz");
+                });
+
+        // Вычисляем результат
+        int score = calculateScore(quiz, answers);
+        int maxScore = quiz.getQuestions().stream().mapToInt(Question::getPoints).sum();
+
+        QuizSubmission submission = new QuizSubmission();
+        submission.setQuiz(quiz);
+        submission.setStudent(student);
+        submission.setScore(score);
+
+        QuizSubmission savedSubmission = quizSubmissionRepository.save(submission);
+        log.info("Student {} submitted quiz {} with score {}/{}", studentId, quizId, score, maxScore);
+
+        return convertToSubmissionDTO(savedSubmission);
+    }
+
+    private int calculateScore(Quiz quiz, Map<Long, Long> answers) {
+        int score = 0;
+
+        for (Question question : quiz.getQuestions()) {
+            Long selectedOptionId = answers.get(question.getId());
+            if (selectedOptionId != null) {
+                boolean isCorrect = question.getOptions().stream()
+                        .filter(AnswerOption::getIsCorrect)
+                        .anyMatch(option -> option.getId().equals(selectedOptionId));
+
+                if (isCorrect) {
+                    score += question.getPoints();
+                }
+            }
+        }
+
+        return score;
+    }
+
+    @Transactional(readOnly = true)
+    public List<QuizSubmissionDTO> getQuizSubmissionsByStudent(Long studentId) {
+        return quizSubmissionRepository.findByStudentIdWithQuiz(studentId).stream()
+                .map(this::convertToSubmissionDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<QuizSubmissionDTO> getQuizSubmissionsByQuiz(Long quizId) {
+        return quizSubmissionRepository.findByQuizIdWithStudent(quizId).stream()
+                .map(this::convertToSubmissionDTO)
+                .collect(Collectors.toList());
+    }
+
+    private QuizDTO convertToDTO(Quiz quiz) {
+        QuizDTO dto = new QuizDTO();
+        dto.setId(quiz.getId());
+        dto.setTitle(quiz.getTitle());
+        dto.setDescription(quiz.getDescription());
+        dto.setTimeLimit(quiz.getTimeLimit());
+
+        if (quiz.getModule() != null) {
+            dto.setModuleId(quiz.getModule().getId());
+            dto.setModuleTitle(quiz.getModule().getTitle());
+        }
+
+        if (quiz.getCourse() != null) {
+            dto.setCourseId(quiz.getCourse().getId());
+            dto.setCourseTitle(quiz.getCourse().getTitle());
+        }
+
+        return dto;
+    }
+
+    private QuizSubmissionDTO convertToSubmissionDTO(QuizSubmission submission) {
+        QuizSubmissionDTO dto = new QuizSubmissionDTO();
+        dto.setId(submission.getId());
+        dto.setScore(submission.getScore());
+        dto.setTakenAt(submission.getTakenAt());
+        dto.setQuizId(submission.getQuiz().getId());
+        dto.setQuizTitle(submission.getQuiz().getTitle());
+        dto.setStudentId(submission.getStudent().getId());
+        dto.setStudentName(submission.getStudent().getName());
+        return dto;
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/service/AssignmentService.java
+package com.example.learningplatform.service;
+
+import com.example.learningplatform.dto.AssignmentDTO;
+import com.example.learningplatform.dto.SubmissionDTO;
+import com.example.learningplatform.entity.Assignment;
+import com.example.learningplatform.entity.Lesson;
+import com.example.learningplatform.entity.Submission;
+import com.example.learningplatform.entity.User;
+import com.example.learningplatform.exception.ResourceNotFoundException;
+import com.example.learningplatform.repository.AssignmentRepository;
+import com.example.learningplatform.repository.LessonRepository;
+import com.example.learningplatform.repository.SubmissionRepository;
+import com.example.learningplatform.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class AssignmentService {
+
+    private final AssignmentRepository assignmentRepository;
+    private final SubmissionRepository submissionRepository;
+    private final LessonRepository lessonRepository;
+    private final UserRepository userRepository;
+
+    public AssignmentDTO createAssignment(Assignment assignment, Long lessonId) {
+        Lesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lesson not found with id: " + lessonId));
+
+        assignment.setLesson(lesson);
+        Assignment savedAssignment = assignmentRepository.save(assignment);
+        log.info("Created assignment with id: {}", savedAssignment.getId());
+        return convertToDTO(savedAssignment);
+    }
+
+    public SubmissionDTO submitAssignment(Long assignmentId, Long studentId, String content) {
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment not found with id: " + assignmentId));
+
+        User student = userRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
+
+        // Проверяем, не отправлял ли студент уже решение
+        submissionRepository.findByStudentIdAndAssignmentId(studentId, assignmentId)
+                .ifPresent(submission -> {
+                    throw new IllegalArgumentException("Student has already submitted this assignment");
+                });
+
+        Submission submission = new Submission();
+        submission.setAssignment(assignment);
+        submission.setStudent(student);
+        submission.setContent(content);
+
+        Submission savedSubmission = submissionRepository.save(submission);
+        log.info("Student {} submitted assignment {}", studentId, assignmentId);
+        return convertToSubmissionDTO(savedSubmission);
+    }
+
+    public SubmissionDTO gradeSubmission(Long submissionId, Integer score, String feedback) {
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
+
+        if (score < 0 || score > submission.getAssignment().getMaxScore()) {
+            throw new IllegalArgumentException("Score must be between 0 and " + submission.getAssignment().getMaxScore());
+        }
+
+        submission.setScore(score);
+        submission.setFeedback(feedback);
+
+        Submission updatedSubmission = submissionRepository.save(submission);
+        log.info("Graded submission {} with score {}", submissionId, score);
+        return convertToSubmissionDTO(updatedSubmission);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SubmissionDTO> getSubmissionsByAssignment(Long assignmentId) {
+        return submissionRepository.findByAssignmentIdWithStudent(assignmentId).stream()
+                .map(this::convertToSubmissionDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<SubmissionDTO> getSubmissionsByStudent(Long studentId) {
+        return submissionRepository.findByStudentIdWithAssignment(studentId).stream()
+                .map(this::convertToSubmissionDTO)
+                .collect(Collectors.toList());
+    }
+
+    private AssignmentDTO convertToDTO(Assignment assignment) {
+        AssignmentDTO dto = new AssignmentDTO();
+        dto.setId(assignment.getId());
+        dto.setTitle(assignment.getTitle());
+        dto.setDescription(assignment.getDescription());
+        dto.setDueDate(assignment.getDueDate());
+        dto.setMaxScore(assignment.getMaxScore());
+        dto.setLessonId(assignment.getLesson().getId());
+        dto.setLessonTitle(assignment.getLesson().getTitle());
+        return dto;
+    }
+
+    private SubmissionDTO convertToSubmissionDTO(Submission submission) {
+        SubmissionDTO dto = new SubmissionDTO();
+        dto.setId(submission.getId());
+        dto.setContent(submission.getContent());
+        dto.setSubmittedAt(submission.getSubmittedAt());
+        dto.setScore(submission.getScore());
+        dto.setFeedback(submission.getFeedback());
+        dto.setAssignmentId(submission.getAssignment().getId());
+        dto.setAssignmentTitle(submission.getAssignment().getTitle());
+        dto.setStudentId(submission.getStudent().getId());
+        dto.setStudentName(submission.getStudent().getName());
+        return dto;
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/service/CourseService.java
+package com.example.learningplatform.service;
+
+import com.example.learningplatform.dto.CourseDTO;
+import com.example.learningplatform.dto.CreateCourseRequest;
+import com.example.learningplatform.dto.LessonDTO;
+import com.example.learningplatform.dto.ModuleDTO;
+import com.example.learningplatform.entity.*;
+import com.example.learningplatform.exception.ResourceNotFoundException;
+import com.example.learningplatform.repository.*;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class CourseService {
+
+    private final CourseRepository courseRepository;
+    private final UserRepository userRepository;
+    private final CategoryRepository categoryRepository;
+    private final TagRepository tagRepository;
+    private final ModuleRepository moduleRepository;
+
+    public CourseDTO createCourse(CreateCourseRequest request) {
+        User teacher = userRepository.findById(request.getTeacherId())
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with id: " + request.getTeacherId()));
+
+        Category category = categoryRepository.findById(request.getCategoryId())
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + request.getCategoryId()));
+
+        Course course = new Course();
+        course.setTitle(request.getTitle());
+        course.setDescription(request.getDescription());
+        course.setDuration(request.getDuration());
+        course.setStartDate(request.getStartDate());
+        course.setEndDate(request.getEndDate());
+        course.setPrice(request.getPrice());
+        course.setCategory(category);
+        course.setTeacher(teacher);
+        course.setIsPublished(false);
+
+        // Добавление тегов
+        if (request.getTags() != null) {
+            for (String tagName : request.getTags()) {
+                Tag tag = tagRepository.findByName(tagName)
+                        .orElseGet(() -> {
+                            Tag newTag = new Tag();
+                            newTag.setName(tagName);
+                            return tagRepository.save(newTag);
+                        });
+                course.getTags().add(tag);
+            }
+        }
+
+        Course savedCourse = courseRepository.save(course);
+        log.info("Created course with id: {}", savedCourse.getId());
+        return convertToDTO(savedCourse);
+    }
+
+    @Transactional(readOnly = true)
+    public CourseDTO getCourseById(Long id) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+        return convertToDTO(course);
+    }
+
+    @Transactional(readOnly = true)
+    public CourseDTO getCourseWithModules(Long id) {
+        Course course = courseRepository.findByIdWithModules(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+        return convertToDetailedDTO(course);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CourseDTO> getAllCourses() {
+        return courseRepository.findAll().stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CourseDTO> getPublishedCourses() {
+        return courseRepository.findByIsPublishedTrue().stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CourseDTO> getCoursesByCategory(Long categoryId) {
+        return courseRepository.findByCategoryId(categoryId).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CourseDTO> getCoursesByTeacher(Long teacherId) {
+        return courseRepository.findByTeacherId(teacherId).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CourseDTO> searchCourses(String query) {
+        return courseRepository.searchCourses(query).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    public CourseDTO updateCourse(Long id, CreateCourseRequest request) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+
+        course.setTitle(request.getTitle());
+        course.setDescription(request.getDescription());
+        course.setDuration(request.getDuration());
+        course.setStartDate(request.getStartDate());
+        course.setEndDate(request.getEndDate());
+        course.setPrice(request.getPrice());
+
+        if (!course.getCategory().getId().equals(request.getCategoryId())) {
+            Category category = categoryRepository.findById(request.getCategoryId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + request.getCategoryId()));
+            course.setCategory(category);
+        }
+
+        Course updatedCourse = courseRepository.save(course);
+        log.info("Updated course with id: {}", id);
+        return convertToDTO(updatedCourse);
+    }
+
+    public void publishCourse(Long id) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+        course.setIsPublished(true);
+        courseRepository.save(course);
+        log.info("Published course with id: {}", id);
+    }
+
+    public void unpublishCourse(Long id) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
+        course.setIsPublished(false);
+        courseRepository.save(course);
+        log.info("Unpublished course with id: {}", id);
+    }
+
+    public void deleteCourse(Long id) {
+        if (!courseRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Course not found with id: " + id);
+        }
+        courseRepository.deleteById(id);
+        log.info("Deleted course with id: {}", id);
+    }
+
+    private CourseDTO convertToDTO(Course course) {
+        CourseDTO dto = new CourseDTO();
+        dto.setId(course.getId());
+        dto.setTitle(course.getTitle());
+        dto.setDescription(course.getDescription());
+        dto.setDuration(course.getDuration());
+        dto.setStartDate(course.getStartDate());
+        dto.setEndDate(course.getEndDate());
+        dto.setPrice(course.getPrice());
+        dto.setIsPublished(course.getIsPublished());
+        dto.setCategoryId(course.getCategory().getId());
+        dto.setCategoryName(course.getCategory().getName());
+        dto.setTeacherId(course.getTeacher().getId());
+        dto.setTeacherName(course.getTeacher().getName());
+        dto.setTags(course.getTags().stream().map(Tag::getName).collect(Collectors.toList()));
+        return dto;
+    }
+
+    private CourseDTO convertToDetailedDTO(Course course) {
+        CourseDTO dto = convertToDTO(course);
+
+        // Добавляем модули с уроками
+        if (course.getModules() != null) {
+            dto.setModules(course.getModules().stream().map(module -> {
+                ModuleDTO moduleDTO = new ModuleDTO();
+                moduleDTO.setId(module.getId());
+                moduleDTO.setTitle(module.getTitle());
+                moduleDTO.setDescription(module.getDescription());
+                moduleDTO.setOrderIndex(module.getOrderIndex());
+                moduleDTO.setCourseId(module.getCourse().getId());
+
+                if (module.getLessons() != null) {
+                    moduleDTO.setLessons(module.getLessons().stream().map(lesson -> {
+                        LessonDTO lessonDTO = new LessonDTO();
+                        lessonDTO.setId(lesson.getId());
+                        lessonDTO.setTitle(lesson.getTitle());
+                        lessonDTO.setContent(lesson.getContent());
+                        lessonDTO.setVideoUrl(lesson.getVideoUrl());
+                        lessonDTO.setOrderIndex(lesson.getOrderIndex());
+                        lessonDTO.setModuleId(lesson.getModule().getId());
+                        return lessonDTO;
+                    }).collect(Collectors.toList()));
+                }
+
+                return moduleDTO;
+            }).collect(Collectors.toList()));
+        }
+
+        return dto;
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/exception/ResourceNotFoundException.java
+package com.example.learningplatform.exception;
+
+public class ResourceNotFoundException extends RuntimeException {
+    public ResourceNotFoundException(String message) {
+        super(message);
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/exception/GlobalExceptionHandler.java
+package com.example.learningplatform.exception;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
+
+@Slf4j
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFoundException ex) {
+        ErrorResponse errorResponse = new ErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage(),
+                LocalDateTime.now()
+        );
+        log.warn("Resource not found: {}", ex.getMessage());
+        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
+        ErrorResponse errorResponse = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                ex.getMessage(),
+                LocalDateTime.now()
+        );
+        log.warn("Illegal argument: {}", ex.getMessage());
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
+        ex.getBindingResult().getAllErrors().forEach(error -> {
+            String fieldName = ((FieldError) error).getField();
+            String errorMessage = error.getDefaultMessage();
+            errors.put(fieldName, errorMessage);
+        });
+
+        ErrorResponse errorResponse = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Validation failed",
+                LocalDateTime.now(),
+                errors
+        );
+        log.warn("Validation failed: {}", errors);
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
+        ErrorResponse errorResponse = new ErrorResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "An unexpected error occurred",
+                LocalDateTime.now()
+        );
+        log.error("Unexpected error: ", ex);
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+}
+# File: ./src/main/java/com/example/learningplatform/exception/ErrorResponse.java
+package com.example.learningplatform.exception;
+
+import lombok.Data;
+
+import java.time.LocalDateTime;
+import java.util.Map;
+
+@Data
+public class ErrorResponse {
+    private int status;
+    private String message;
+    private LocalDateTime timestamp;
+    private Map<String, String> errors;
+
+    public ErrorResponse(int status, String message, LocalDateTime timestamp) {
+        this.status = status;
+        this.message = message;
+        this.timestamp = timestamp;
+    }
+
+    public ErrorResponse(int status, String message, LocalDateTime timestamp, Map<String, String> errors) {
+        this.status = status;
+        this.message = message;
+        this.timestamp = timestamp;
+        this.errors = errors;
+    }
+}

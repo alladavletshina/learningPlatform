@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+
+    <!-- Foreign key constraints -->
+    <changeSet id="constraint-1-profiles-user-fk" author="your_name">
+        <comment>Add foreign key from profiles to users</comment>
+        <sql><![CDATA[
+            ALTER TABLE profiles
+                ADD CONSTRAINT fk_profiles_user
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-2-courses-category-fk" author="your_name">
+        <comment>Add foreign key from courses to categories</comment>
+        <sql><![CDATA[
+            ALTER TABLE courses
+                ADD CONSTRAINT fk_courses_category
+                    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL;
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-3-courses-teacher-fk" author="your_name">
+        <comment>Add foreign key from courses to users (teacher)</comment>
+        <sql><![CDATA[
+            ALTER TABLE courses
+                ADD CONSTRAINT fk_courses_teacher
+                    FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE;
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-4-course-tags-fk" author="your_name">
+        <comment>Add foreign keys for course_tags junction table</comment>
+        <sql><![CDATA[
+            ALTER TABLE course_tags
+                ADD CONSTRAINT fk_course_tags_course
+                    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE;
+
+            ALTER TABLE course_tags
+                ADD CONSTRAINT fk_course_tags_tag
+                    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE;
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-5-modules-course-fk" author="your_name">
+        <comment>Add foreign key from modules to courses</comment>
+        <sql><![CDATA[
+            ALTER TABLE modules
+                ADD CONSTRAINT fk_modules_course
+                    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE;
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-6-lessons-module-fk" author="your_name">
+        <comment>Add foreign key from lessons to modules</comment>
+        <sql><![CDATA[
+            ALTER TABLE lessons
+                ADD CONSTRAINT fk_lessons_module
+                    FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE;
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-7-assignments-lesson-fk" author="your_name">
+        <comment>Add foreign key from assignments to lessons</comment>
+        <sql><![CDATA[
+            ALTER TABLE assignments
+                ADD CONSTRAINT fk_assignments_lesson
+                    FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE;
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-8-quizzes-module-fk" author="your_name">
+        <comment>Add foreign key from quizzes to modules</comment>
+        <sql><![CDATA[
+            ALTER TABLE quizzes
+                ADD CONSTRAINT fk_quizzes_module
+                    FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE SET NULL;
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-9-quizzes-course-fk" author="your_name">
+        <comment>Add foreign key from quizzes to courses</comment>
+        <sql><![CDATA[
+            ALTER TABLE quizzes
+                ADD CONSTRAINT fk_quizzes_course
+                    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE;
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-10-questions-quiz-fk" author="your_name">
+        <comment>Add foreign key from questions to quizzes</comment>
+        <sql><![CDATA[
+            ALTER TABLE questions
+                ADD CONSTRAINT fk_questions_quiz
+                    FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE;
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-11-answer-options-question-fk" author="your_name">
+        <comment>Add foreign key from answer_options to questions</comment>
+        <sql><![CDATA[
+            ALTER TABLE answer_options
+                ADD CONSTRAINT fk_answer_options_question
+                    FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE;
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-12-enrollments-student-fk" author="your_name">
+        <comment>Add foreign key from enrollments to users (student)</comment>
+        <sql><![CDATA[
+            ALTER TABLE enrollments
+                ADD CONSTRAINT fk_enrollments_student
+                    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE;
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-13-enrollments-course-fk" author="your_name">
+        <comment>Add foreign key from enrollments to courses</comment>
+        <sql><![CDATA[
+            ALTER TABLE enrollments
+                ADD CONSTRAINT fk_enrollments_course
+                    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE;
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-14-submissions-assignment-fk" author="your_name">
+        <comment>Add foreign key from submissions to assignments</comment>
+        <sql><![CDATA[
+            ALTER TABLE submissions
+                ADD CONSTRAINT fk_submissions_assignment
+                    FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE;
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-15-submissions-student-fk" author="your_name">
+        <comment>Add foreign key from submissions to users (student)</comment>
+        <sql><![CDATA[
+            ALTER TABLE submissions
+                ADD CONSTRAINT fk_submissions_student
+                    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE;
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-16-quiz-submissions-quiz-fk" author="your_name">
+        <comment>Add foreign key from quiz_submissions to quizzes</comment>
+        <sql><![CDATA[
+            ALTER TABLE quiz_submissions
+                ADD CONSTRAINT fk_quiz_submissions_quiz
+                    FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE;
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-17-quiz-submissions-student-fk" author="your_name">
+        <comment>Add foreign key from quiz_submissions to users (student)</comment>
+        <sql><![CDATA[
+            ALTER TABLE quiz_submissions
+                ADD CONSTRAINT fk_quiz_submissions_student
+                    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE;
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-18-course-reviews-course-fk" author="your_name">
+        <comment>Add foreign key from course_reviews to courses</comment>
+        <sql><![CDATA[
+            ALTER TABLE course_reviews
+                ADD CONSTRAINT fk_course_reviews_course
+                    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE;
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-19-course-reviews-student-fk" author="your_name">
+        <comment>Add foreign key from course_reviews to users (student)</comment>
+        <sql><![CDATA[
+            ALTER TABLE course_reviews
+                ADD CONSTRAINT fk_course_reviews_student
+                    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE;
+            ]]></sql>
+    </changeSet>
+
+    <!-- Unique constraints -->
+    <changeSet id="constraint-20-unique-profile-user" author="your_name">
+        <comment>Add unique constraint for profile per user</comment>
+        <sql><![CDATA[
+            ALTER TABLE profiles ADD CONSTRAINT uk_profiles_user UNIQUE (user_id);
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-21-unique-enrollment" author="your_name">
+        <comment>Add unique constraint for enrollment per student and course</comment>
+        <sql><![CDATA[
+            ALTER TABLE enrollments ADD CONSTRAINT uk_enrollments_student_course UNIQUE (student_id, course_id);
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-22-unique-submission" author="your_name">
+        <comment>Add unique constraint for submission per student and assignment</comment>
+        <sql><![CDATA[
+            ALTER TABLE submissions ADD CONSTRAINT uk_submissions_student_assignment UNIQUE (student_id, assignment_id);
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-23-unique-quiz-submission" author="your_name">
+        <comment>Add unique constraint for quiz submission per student and quiz</comment>
+        <sql><![CDATA[
+            ALTER TABLE quiz_submissions ADD CONSTRAINT uk_quiz_submissions_student_quiz UNIQUE (student_id, quiz_id);
+            ]]></sql>
+    </changeSet>
+
+    <changeSet id="constraint-24-unique-course-review" author="your_name">
+        <comment>Add unique constraint for course review per student and course</comment>
+        <sql><![CDATA[
+            ALTER TABLE course_reviews ADD CONSTRAINT uk_course_reviews_student_course UNIQUE (student_id, course_id);
+            ]]></sql>
+    </changeSet>
+
+    <!-- Indexes for performance -->
+    <changeSet id="index-1-users-email" author="your_name">
+        <comment>Create index on users email</comment>
+        <sql><![CDATA[CREATE INDEX idx_users_email ON users(email);]]></sql>
+    </changeSet>
+
+    <changeSet id="index-2-courses-teacher" author="your_name">
+        <comment>Create index on courses teacher_id</comment>
+        <sql><![CDATA[CREATE INDEX idx_courses_teacher ON courses(teacher_id);]]></sql>
+    </changeSet>
+
+    <changeSet id="index-3-courses-category" author="your_name">
+        <comment>Create index on courses category_id</comment>
+        <sql><![CDATA[CREATE INDEX idx_courses_category ON courses(category_id);]]></sql>
+    </changeSet>
+
+    <changeSet id="index-4-enrollments-student" author="your_name">
+        <comment>Create index on enrollments student_id</comment>
+        <sql><![CDATA[CREATE INDEX idx_enrollments_student ON enrollments(student_id);]]></sql>
+    </changeSet>
+
+    <changeSet id="index-5-enrollments-course" author="your_name">
+        <comment>Create index on enrollments course_id</comment>
+        <sql><![CDATA[CREATE INDEX idx_enrollments_course ON enrollments(course_id);]]></sql>
+    </changeSet>
+
+    <changeSet id="index-6-modules-course" author="your_name">
+        <comment>Create index on modules course_id</comment>
+        <sql><![CDATA[CREATE INDEX idx_modules_course ON modules(course_id);]]></sql>
+    </changeSet>
+
+    <changeSet id="index-7-lessons-module" author="your_name">
+        <comment>Create index on lessons module_id</comment>
+        <sql><![CDATA[CREATE INDEX idx_lessons_module ON lessons(module_id);]]></sql>
+    </changeSet>
+
+    <changeSet id="index-8-assignments-lesson" author="your_name">
+        <comment>Create index on assignments lesson_id</comment>
+        <sql><![CDATA[CREATE INDEX idx_assignments_lesson ON assignments(lesson_id);]]></sql>
+    </changeSet>
+
+    <changeSet id="index-9-questions-quiz" author="your_name">
+        <comment>Create index on questions quiz_id</comment>
+        <sql><![CDATA[CREATE INDEX idx_questions_quiz ON questions(quiz_id);]]></sql>
+    </changeSet>
+
+    <changeSet id="index-10-answer-options-question" author="your_name">
+        <comment>Create index on answer_options question_id</comment>
+        <sql><![CDATA[CREATE INDEX idx_answer_options_question ON answer_options(question_id);]]></sql>
+    </changeSet>
+
+    <changeSet id="index-11-submissions-assignment" author="your_name">
+        <comment>Create index on submissions assignment_id</comment>
+        <sql><![CDATA[CREATE INDEX idx_submissions_assignment ON submissions(assignment_id);]]></sql>
+    </changeSet>
+
+    <changeSet id="index-12-submissions-student" author="your_name">
+        <comment>Create index on submissions student_id</comment>
+        <sql><![CDATA[CREATE INDEX idx_submissions_student ON submissions(student_id);]]></sql>
+    </changeSet>
+
+    <changeSet id="index-13-quiz-submissions-quiz" author="your_name">
+        <comment>Create index on quiz_submissions quiz_id</comment>
+        <sql><![CDATA[CREATE INDEX idx_quiz_submissions_quiz ON quiz_submissions(quiz_id);]]></sql>
+    </changeSet>
+
+    <changeSet id="index-14-quiz-submissions-student" author="your_name">
+        <comment>Create index on quiz_submissions student_id</comment>
+        <sql><![CDATA[CREATE INDEX idx_quiz_submissions_student ON quiz_submissions(student_id);]]></sql>
+    </changeSet>
+
+    <changeSet id="index-15-course-reviews-course" author="your_name">
+        <comment>Create index on course_reviews course_id</comment>
+        <sql><![CDATA[CREATE INDEX idx_course_reviews_course ON course_reviews(course_id);]]></sql>
+    </changeSet>
+
+    <changeSet id="index-16-course-reviews-student" author="your_name">
+        <comment>Create index on course_reviews student_id</comment>
+        <sql><![CDATA[CREATE INDEX idx_course_reviews_student ON course_reviews(student_id);]]></sql>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,4 @@
+com/example/learningplatform/config/CourseServiceIntegrationTest.class
+com/example/learningplatform/LearningPlatformApplicationTest.class
+com/example/learningplatform/config/TestContainersConfig.class
+com/example/learningplatform/config/UserServiceIntegrationTest.class
