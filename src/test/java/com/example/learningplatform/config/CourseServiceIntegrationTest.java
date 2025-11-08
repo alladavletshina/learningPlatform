@@ -5,8 +5,10 @@ import com.example.learningplatform.entity.Category;
 import com.example.learningplatform.entity.User;
 import com.example.learningplatform.entity.enums.UserRole;
 import com.example.learningplatform.repository.CategoryRepository;
+import com.example.learningplatform.repository.CourseRepository;
 import com.example.learningplatform.repository.UserRepository;
 import com.example.learningplatform.service.CourseService;
+import org.apache.commons.text.TextStringBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +41,7 @@ class CourseServiceIntegrationTest {
 
     @BeforeEach
     void setUp() {
+
         teacher = new User();
         teacher.setName("Professor X");
         teacher.setEmail("professor@example.com");
@@ -101,21 +104,28 @@ class CourseServiceIntegrationTest {
 
     @Test
     void searchCourses_ShouldReturnMatchingCourses() {
-        // Даем названия курсам
+        // Given - создаем курсы с уникальными названиями
+        String uniquePrefix = "TestSearch_" + System.currentTimeMillis();
+
         CreateCourseRequest request1 = new CreateCourseRequest();
-        request1.setTitle("Java Advanced");
+        request1.setTitle(uniquePrefix + " Java Advanced");
         request1.setDescription("Advanced Java programming");
+        request1.setCategoryId(category.getId());
+        request1.setTeacherId(teacher.getId());
         courseService.createCourse(request1);
 
         CreateCourseRequest request2 = new CreateCourseRequest();
-        request2.setTitle("Python Basics");
+        request2.setTitle(uniquePrefix + " Python Basics");
         request2.setDescription("Learn Python programming");
+        request2.setCategoryId(category.getId());
+        request2.setTeacherId(teacher.getId());
         courseService.createCourse(request2);
 
-        // Проверяем поиск
-        System.out.println("Поиск по запросу \"Java\": ");
-        var javaCourses = courseService.searchCourses("Java");
-        System.out.println("Количество найденных курсов: " + javaCourses.size());
-        assertEquals(1, javaCourses.size()); // Теперь проверяется правильный результат
+        // When - ищем по уникальному префиксу
+        var foundCourses = courseService.searchCourses(uniquePrefix + " Java");
+
+        // Then
+        assertEquals(1, foundCourses.size());
+        assertEquals(uniquePrefix + " Java Advanced", foundCourses.get(0).getTitle());
     }
 }
