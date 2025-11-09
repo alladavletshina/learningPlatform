@@ -49,11 +49,32 @@ public class GlobalExceptionHandler {
 
         ErrorResponse errorResponse = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
-                "Validation failed",
+                "Validation failed for one or more fields",
                 LocalDateTime.now(),
                 errors
         );
         log.warn("Validation failed: {}", errors);
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(jakarta.validation.ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConstraintViolationException(
+            jakarta.validation.ConstraintViolationException ex) {
+
+        Map<String, String> errors = new HashMap<>();
+        ex.getConstraintViolations().forEach(violation -> {
+            String fieldName = violation.getPropertyPath().toString();
+            String errorMessage = violation.getMessage();
+            errors.put(fieldName, errorMessage);
+        });
+
+        ErrorResponse errorResponse = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Constraint violation",
+                LocalDateTime.now(),
+                errors
+        );
+        log.warn("Constraint violation: {}", errors);
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
