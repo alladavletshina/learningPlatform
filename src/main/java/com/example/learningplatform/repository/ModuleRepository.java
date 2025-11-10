@@ -18,4 +18,5 @@ public interface ModuleRepository extends JpaRepository<Module, Long> {
 
     @Query("SELECT m FROM Module m LEFT JOIN FETCH m.lessons WHERE m.course.id = :courseId ORDER BY m.orderIndex")
     List<Module> findByCourseIdWithLessons(@Param("courseId") Long courseId);
+
 }

@@ -18,4 +18,5 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
 
     @Query("SELECT l FROM Lesson l LEFT JOIN FETCH l.assignments WHERE l.module.id = :moduleId ORDER BY l.orderIndex")
     List<Lesson> findByModuleIdWithAssignments(@Param("moduleId") Long moduleId);
+
 }

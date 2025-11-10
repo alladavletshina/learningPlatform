@@ -128,56 +128,6 @@ public class DataLoader implements CommandLineRunner {
         return courseRepository.save(course);
     }
 
-    private void createCourseStructure(Course course) {
-        // Модуль 1
-        Module module1 = new Module();
-        module1.setTitle("Introduction to Java");
-        module1.setDescription("Java basics and setup");
-        module1.setOrderIndex(1);
-        module1.setCourse(course);
-        module1 = moduleRepository.save(module1);
-
-        Lesson lesson1 = new Lesson();
-        lesson1.setTitle("What is Java?");
-        lesson1.setContent("Java is a popular programming language...");
-        lesson1.setVideoUrl("https://example.com/video1");
-        lesson1.setOrderIndex(1);
-        lesson1.setModule(module1);
-        lessonRepository.save(lesson1);
-
-        Lesson lesson2 = new Lesson();
-        lesson2.setTitle("Setting up Development Environment");
-        lesson2.setContent("Install JDK and IDE...");
-        lesson2.setVideoUrl("https://example.com/video2");
-        lesson2.setOrderIndex(2);
-        lesson2.setModule(module1);
-        lessonRepository.save(lesson2);
-
-        // Модуль 2
-        Module module2 = new Module();
-        module2.setTitle("Object-Oriented Programming");
-        module2.setDescription("OOP concepts in Java");
-        module2.setOrderIndex(2);
-        module2.setCourse(course);
-        module2 = moduleRepository.save(module2);
-
-        Lesson lesson3 = new Lesson();
-        lesson3.setTitle("Classes and Objects");
-        lesson3.setContent("Understanding classes and objects...");
-        lesson3.setVideoUrl("https://example.com/video3");
-        lesson3.setOrderIndex(1);
-        lesson3.setModule(module2);
-        lessonRepository.save(lesson3);
-
-        // Задание
-        Assignment assignment = new Assignment();
-        assignment.setTitle("First Java Program");
-        assignment.setDescription("Write a simple Hello World program");
-        assignment.setDueDate(LocalDateTime.now().plusDays(7));
-        assignment.setMaxScore(100);
-        assignment.setLesson(lesson3);
-        assignmentRepository.save(assignment);
-    }
 
     private void createEnrollment(User student, Course course, int progress) {
         Enrollment enrollment = new Enrollment();
@@ -185,5 +135,70 @@ public class DataLoader implements CommandLineRunner {
         enrollment.setCourse(course);
         enrollment.setProgress(progress);
         enrollmentRepository.save(enrollment);
+    }
+
+    private void createCourseStructure(Course course) {
+        // Модуль 1: Введение в Java
+        Module module1 = new Module();
+        module1.setTitle("Введение в Java");
+        module1.setDescription("Основы языка Java и настройка окружения");
+        module1.setOrderIndex(1);
+        module1.setCourse(course);
+        module1 = moduleRepository.save(module1);
+
+        // Уроки для модуля 1
+        Lesson lesson1 = createLesson("Что такое Java?",
+                "Java - это популярный объектно-ориентированный язык программирования...",
+                "https://example.com/video1", 1, module1);
+
+        Lesson lesson2 = createLesson("Настройка среды разработки",
+                "Установка JDK, IntelliJ IDEA и настройка первого проекта...",
+                "https://example.com/video2", 2, module1);
+
+        // Модуль 2: Объектно-ориентированное программирование
+        Module module2 = new Module();
+        module2.setTitle("Объектно-ориентированное программирование");
+        module2.setDescription("Основы ООП: классы, объекты, наследование, полиморфизм");
+        module2.setOrderIndex(2);
+        module2.setCourse(course);
+        module2 = moduleRepository.save(module2);
+
+        // Уроки для модуля 2
+        Lesson lesson3 = createLesson("Классы и объекты",
+                "Создание классов, конструкторы, методы и работа с объектами...",
+                "https://example.com/video3", 1, module2);
+
+        Lesson lesson4 = createLesson("Наследование и полиморфизм",
+                "Принципы наследования, переопределение методов и полиморфное поведение...",
+                "https://example.com/video4", 2, module2);
+
+        // Задания
+        createAssignment("Первая Java программа",
+                "Напишите программу 'Hello World' и продемонстрируйте ее работу",
+                LocalDateTime.now().plusDays(7), 100, lesson1);
+
+        createAssignment("Создание класса Student",
+                "Создайте класс Student с полями name, age и методами get/set",
+                LocalDateTime.now().plusDays(14), 100, lesson3);
+    }
+
+    private Lesson createLesson(String title, String content, String videoUrl, int order, Module module) {
+        Lesson lesson = new Lesson();
+        lesson.setTitle(title);
+        lesson.setContent(content);
+        lesson.setVideoUrl(videoUrl);
+        lesson.setOrderIndex(order);
+        lesson.setModule(module);
+        return lessonRepository.save(lesson);
+    }
+
+    private void createAssignment(String title, String description, LocalDateTime dueDate, int maxScore, Lesson lesson) {
+        Assignment assignment = new Assignment();
+        assignment.setTitle(title);
+        assignment.setDescription(description);
+        assignment.setDueDate(dueDate);
+        assignment.setMaxScore(maxScore);
+        assignment.setLesson(lesson);
+        assignmentRepository.save(assignment);
     }
 }
