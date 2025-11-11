@@ -102,16 +102,34 @@
 
 ### Задания и решения (/api/assignments)
 - POST /api/assignments/lesson/{lessonId}
-- POST /api/assignments/{assignmentId}/submit
-- PUT /api/assignments/submissions/{submissionId}/grade
+- POST /api/assignments/{assignmentId}/submit?studentId={}&content={}
+- PUT /api/assignments/submissions/{submissionId}/grade?score={}&feedback={}
 - GET /api/assignments/{assignmentId}/submissions
 - GET /api/assignments/student/{studentId}/submissions
 
 ### Тесты (/api/quizzes)
 - POST /api/quizzes
-- POST /api/quizzes/{quizId}/submit
+- GET /api/quizzes/course/{courseId}
+- GET /api/quizzes/module/{moduleId}
+- GET /api/quizzes/{quizId}
+- POST /api/quizzes/{quizId}/submit/single?studentId={}
+- POST /api/quizzes/{quizId}/submit/multiple?studentId={}
 - GET /api/quizzes/student/{studentId}/submissions
 - GET /api/quizzes/{quizId}/submissions
+- DELETE /api/quizzes/{quizId}
+
+### Структура курса (/api/courses/{courseId}/structure)
+- POST /api/courses/{courseId}/structure/modules
+- POST /api/courses/{courseId}/structure/modules/{moduleId}/lessons
+- GET /api/courses/{courseId}/structure/full
+- PUT /api/courses/{courseId}/structure/modules/{moduleId}/order?order={}
+- PUT /api/courses/{courseId}/structure/lessons/{lessonId}/order?order={}
+- DELETE /api/courses/{courseId}/structure/modules/{moduleId}
+- DELETE /api/courses/{courseId}/structure/lessons/{lessonId}
+- PUT /api/courses/{courseId}/structure/modules/{moduleId}
+- PUT /api/courses/{courseId}/structure/lessons/{lessonId}
+- GET /api/courses/{courseId}/structure/modules/{moduleId}
+- GET /api/courses/{courseId}/structure/lessons/{lessonId}
 
 ### Отзывы (/api/reviews)
 - POST /api/reviews/student/{studentId}
@@ -190,9 +208,7 @@ Content-Type: application/x-www-form-urlencoded
 
 1. **Настройка базы данных:**
 
-CREATE DATABASE learning_platform;
-CREATE USER platform_user WITH PASSWORD 'password';
-GRANT ALL PRIVILEGES ON DATABASE learning_platform TO platform_user;
+Используется база postgres по умолчанию
 
 2. **Запуск приложения:**
 
@@ -207,14 +223,10 @@ mvn spring-boot:run
 ### Способ 2: Запуск с Docker
 
 chmod +x start-with-docker.sh
-./start-with-docker.sh
-
-### Конфигурация
-application.properties
-properties
+./start-with-docker.sh      
 
 # База данных
-spring.datasource.url=jdbc:postgresql://localhost:5432/learning_platform
+spring.datasource.url=jdbc:postgresql://localhost:5432/postgres
 spring.datasource.username=platform_user
 spring.datasource.password=password
 
@@ -247,26 +259,3 @@ Bean Validation аннотации (@NotBlank, @Size, @Email)
 
 Уникальные ограничения на уровне БД
 
-## Docker
-
-Сборка образа
-
-docker build -t learning-platform:1.0.0 .
-
-Docker Compose
-yaml
-version: '3.8'
-services:
-  app:
-    image: learning-platform:1.0.0
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/learning_platform
-    depends_on:
-      - db
-
-  db:
-    image: postgres:15
-    environment:
-      - POSTGRES_DB=learning_platform
-      - POSTGRES_USER=platform_user
-      - POSTGRES_PASSWORD=password

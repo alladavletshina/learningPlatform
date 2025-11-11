@@ -4,7 +4,7 @@ echo "Starting Learning Platform..."
 
 # Проверяем наличие Java
 if ! command -v java &> /dev/null; then
-    echo "Error: Java is not installed. Please install Java 17 or higher."
+    echo "Error: Java is not installed. Please install Java 21 or higher."
     exit 1
 fi
 

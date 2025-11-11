@@ -17,7 +17,10 @@ spring:
   h2:
     console:
       enabled: true
+      path: /h2-console
 
 logging:
   level:
     com.example.learningplatform: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE

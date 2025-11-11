@@ -1,36 +1,36 @@
-#version: '3.8'
-#
-#services:
-#  postgres:
-#    image: postgres:15-alpine
-#    environment:
-#      POSTGRES_DB: postgres
-#      POSTGRES_USER: postgres
-#      POSTGRES_PASSWORD: postgres
-#    ports:
-#      - "5432:5432"
-#    volumes:
-#      - postgres_data:/var/lib/postgresql/data
-#    networks:
-#      - learning-platform
-#
-#  app:
-#    build: .
-#    environment:
-#      SPRING_PROFILES_ACTIVE: prod
-#      DATABASE_URL: jdbc:postgresql://postgres:5432/postgres
-#      DATABASE_USERNAME: postgres
-#      DATABASE_PASSWORD: postgres
-#    ports:
-#      - "8080:8080"
-#    depends_on:
-#      - postgres
-#    networks:
-#      - learning-platform
-#
-#volumes:
-#  postgres_data:
-#
-#networks:
-#  learning-platform:
-#    driver: bridge
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - learning-platform
+
+  app:
+    build: .
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DATABASE_URL: jdbc:postgresql://postgres:5432/postgres
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - learning-platform
+
+volumes:
+  postgres_data:
+
+networks:
+  learning-platform:
+    driver: bridge
