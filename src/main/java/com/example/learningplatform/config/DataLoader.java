@@ -1,7 +1,11 @@
 package com.example.learningplatform.config;
 
+import com.example.learningplatform.dto.CreateAnswerOptionRequest;
+import com.example.learningplatform.dto.CreateQuestionRequest;
+import com.example.learningplatform.dto.CreateQuizRequest;
 import com.example.learningplatform.entity.*;
 import com.example.learningplatform.entity.Module;
+import com.example.learningplatform.entity.enums.QuestionType;
 import com.example.learningplatform.entity.enums.UserRole;
 import com.example.learningplatform.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +16,7 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 
@@ -201,4 +206,5 @@ public class DataLoader implements CommandLineRunner {
         assignment.setLesson(lesson);
         assignmentRepository.save(assignment);
     }
+
 }
