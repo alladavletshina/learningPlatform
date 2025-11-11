@@ -24,7 +24,7 @@ public class CourseStructureController {
             @PathVariable Long courseId,
             @Valid @RequestBody CreateModuleRequest request) {
 
-        // Убеждаемся, что module добавляется к правильному курсу
+
         if (!courseId.equals(request.getCourseId())) {
             throw new IllegalArgumentException("Course ID in path and request body must match");
         }
@@ -39,7 +39,6 @@ public class CourseStructureController {
             @PathVariable Long moduleId,
             @Valid @RequestBody CreateLessonRequest request) {
 
-        // Убеждаемся, что lesson добавляется к правильному модулю
         if (!moduleId.equals(request.getModuleId())) {
             throw new IllegalArgumentException("Module ID in path and request body must match");
         }

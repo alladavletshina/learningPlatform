@@ -1,14 +1,11 @@
-package com.example.learningplatform.config;
+package com.example.learningplatform.service;
 
 import com.example.learningplatform.dto.CreateCourseRequest;
 import com.example.learningplatform.entity.Category;
 import com.example.learningplatform.entity.User;
 import com.example.learningplatform.entity.enums.UserRole;
 import com.example.learningplatform.repository.CategoryRepository;
-import com.example.learningplatform.repository.CourseRepository;
 import com.example.learningplatform.repository.UserRepository;
-import com.example.learningplatform.service.CourseService;
-import org.apache.commons.text.TextStringBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

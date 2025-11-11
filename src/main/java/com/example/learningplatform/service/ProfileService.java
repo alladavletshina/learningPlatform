@@ -25,7 +25,6 @@ public class ProfileService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
-        // Проверяем, есть ли уже профиль у пользователя
         if (profileRepository.findByUserId(userId).isPresent()) {
             throw new IllegalArgumentException("Profile already exists for user: " + userId);
         }

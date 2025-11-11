@@ -60,7 +60,6 @@ public class CourseService {
         course.setTeacher(teacher);
         course.setIsPublished(false);
 
-        // Добавление тегов
         if (request.getTags() != null) {
             for (String tagName : request.getTags()) {
                 Tag tag = tagRepository.findByName(tagName)
@@ -97,7 +96,6 @@ public class CourseService {
         Course course = courseRepository.findByIdWithModulesAndTags(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
 
-        // Явно загружаем уроки для каждого модуля
         List<Module> modulesWithLessons = moduleRepository.findByCourseIdWithLessons(id);
         course.setModules(modulesWithLessons);
 
@@ -156,7 +154,6 @@ public class CourseService {
             course.setCategory(category);
         }
 
-        // Обновление тегов
         if (request.getTags() != null) {
             course.getTags().clear();
             for (String tagName : request.getTags()) {
@@ -199,16 +196,12 @@ public class CourseService {
         log.info("Deleted course with id: {}", id);
     }
 
-    // ========== УПРАВЛЕНИЕ СТРУКТУРОЙ КУРСА ==========
-
     public ModuleDTO addModuleToCourse(CreateModuleRequest request) {
         Course course = courseRepository.findById(request.getCourseId())
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + request.getCourseId()));
 
-        // Загружаем модули курса для проверки дублирования orderIndex
         List<Module> existingModules = moduleRepository.findByCourseId(request.getCourseId());
 
-        // Проверяем уникальность orderIndex в рамках курса
         boolean orderExists = existingModules.stream()
                 .anyMatch(module -> module.getOrderIndex().equals(request.getOrderIndex()));
         if (orderExists) {
@@ -231,10 +224,8 @@ public class CourseService {
         Module module = moduleRepository.findById(request.getModuleId())
                 .orElseThrow(() -> new ResourceNotFoundException("Module not found with id: " + request.getModuleId()));
 
-        // Загружаем уроки модуля для проверки дублирования orderIndex
         List<Lesson> existingLessons = lessonRepository.findByModuleId(request.getModuleId());
 
-        // Проверяем уникальность orderIndex в рамках модуля
         boolean orderExists = existingLessons.stream()
                 .anyMatch(lesson -> lesson.getOrderIndex().equals(request.getOrderIndex()));
         if (orderExists) {
@@ -260,10 +251,8 @@ public class CourseService {
 
         Course course = module.getCourse();
 
-        // Загружаем все модули курса для проверки
         List<Module> courseModules = moduleRepository.findByCourseId(course.getId());
 
-        // Проверяем конфликты порядка
         Optional<Module> conflictingModule = courseModules.stream()
                 .filter(m -> !m.getId().equals(moduleId) && m.getOrderIndex().equals(newOrder))
                 .findFirst();
@@ -283,10 +272,8 @@ public class CourseService {
 
         Module module = lesson.getModule();
 
-        // Загружаем все уроки модуля для проверки
         List<Lesson> moduleLessons = lessonRepository.findByModuleId(module.getId());
 
-        // Проверяем конфликты порядка
         Optional<Lesson> conflictingLesson = moduleLessons.stream()
                 .filter(l -> !l.getId().equals(lessonId) && l.getOrderIndex().equals(newOrder))
                 .findFirst();
@@ -304,10 +291,8 @@ public class CourseService {
         Module module = moduleRepository.findById(moduleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Module not found with id: " + moduleId));
 
-        // Загружаем уроки модуля для проверки
         List<Lesson> moduleLessons = lessonRepository.findByModuleId(moduleId);
 
-        // Проверяем, есть ли связанные уроки
         if (!moduleLessons.isEmpty()) {
             throw new IllegalStateException("Cannot delete module with existing lessons. Delete lessons first.");
         }
@@ -320,8 +305,6 @@ public class CourseService {
         Lesson lesson = lessonRepository.findById(lessonId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lesson not found with id: " + lessonId));
 
-        // TODO: Проверить, есть ли связанные задания (нужно добавить AssignmentRepository)
-
         lessonRepository.delete(lesson);
         log.info("Deleted lesson with id: {}", lessonId);
     }
@@ -330,15 +313,12 @@ public class CourseService {
         Module module = moduleRepository.findById(moduleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Module not found with id: " + moduleId));
 
-        // Проверяем, что курс совпадает
         if (!module.getCourse().getId().equals(request.getCourseId())) {
             throw new IllegalArgumentException("Module does not belong to the specified course");
         }
 
-        // Загружаем модули курса для проверки
         List<Module> courseModules = moduleRepository.findByCourseId(request.getCourseId());
 
-        // Проверяем уникальность orderIndex если он изменился
         if (!module.getOrderIndex().equals(request.getOrderIndex())) {
             boolean orderExists = courseModules.stream()
                     .filter(m -> !m.getId().equals(moduleId))
@@ -362,15 +342,12 @@ public class CourseService {
         Lesson lesson = lessonRepository.findById(lessonId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lesson not found with id: " + lessonId));
 
-        // Проверяем, что модуль совпадает
         if (!lesson.getModule().getId().equals(request.getModuleId())) {
             throw new IllegalArgumentException("Lesson does not belong to the specified module");
         }
 
-        // Загружаем уроки модуля для проверки
         List<Lesson> moduleLessons = lessonRepository.findByModuleId(request.getModuleId());
 
-        // Проверяем уникальность orderIndex если он изменился
         if (!lesson.getOrderIndex().equals(request.getOrderIndex())) {
             boolean orderExists = moduleLessons.stream()
                     .filter(l -> !l.getId().equals(lessonId))
@@ -398,7 +375,6 @@ public class CourseService {
 
         ModuleDTO dto = convertToModuleDTO(module);
 
-        // Уроки уже должны быть загружены через JOIN FETCH в репозитории
         if (module.getLessons() != null) {
             dto.setLessons(module.getLessons().stream()
                     .map(this::convertToLessonDTO)
@@ -415,12 +391,7 @@ public class CourseService {
         Lesson lesson = lessonRepository.findByIdWithAssignments(lessonId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lesson not found with id: " + lessonId));
 
-        LessonDTO dto = convertToLessonDTO(lesson);
-
-        // Здесь можно добавить assignments если нужно
-        // dto.setAssignments(...);
-
-        return dto;
+        return convertToLessonDTO(lesson);
     }
 
     @Transactional(readOnly = true)
@@ -429,57 +400,6 @@ public class CourseService {
                 .map(this::convertToModuleDTO)
                 .collect(Collectors.toList());
     }
-
-    @Transactional(readOnly = true)
-    public List<LessonDTO> getModuleLessons(Long moduleId) {
-        return lessonRepository.findByModuleId(moduleId).stream()
-                .map(this::convertToLessonDTO)
-                .collect(Collectors.toList());
-    }
-
-    public void reorderModules(Long courseId, List<Long> moduleIdsInOrder) {
-        Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + courseId));
-
-        // Проверяем, что все модули принадлежат курсу
-        for (int i = 0; i < moduleIdsInOrder.size(); i++) {
-            Long moduleId = moduleIdsInOrder.get(i);
-            Module module = moduleRepository.findById(moduleId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Module not found with id: " + moduleId));
-
-            if (!module.getCourse().getId().equals(courseId)) {
-                throw new IllegalArgumentException("Module " + moduleId + " does not belong to course " + courseId);
-            }
-
-            module.setOrderIndex(i + 1);
-            moduleRepository.save(module);
-        }
-
-        log.info("Reordered modules for course {}", courseId);
-    }
-
-    public void reorderLessons(Long moduleId, List<Long> lessonIdsInOrder) {
-        Module module = moduleRepository.findById(moduleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Module not found with id: " + moduleId));
-
-        // Проверяем, что все уроки принадлежат модулю
-        for (int i = 0; i < lessonIdsInOrder.size(); i++) {
-            Long lessonId = lessonIdsInOrder.get(i);
-            Lesson lesson = lessonRepository.findById(lessonId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Lesson not found with id: " + lessonId));
-
-            if (!lesson.getModule().getId().equals(moduleId)) {
-                throw new IllegalArgumentException("Lesson " + lessonId + " does not belong to module " + moduleId);
-            }
-
-            lesson.setOrderIndex(i + 1);
-            lessonRepository.save(lesson);
-        }
-
-        log.info("Reordered lessons for module {}", moduleId);
-    }
-
-    // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ==========
 
     private CourseDTO convertToDTO(Course course) {
         CourseDTO dto = new CourseDTO();
@@ -492,7 +412,6 @@ public class CourseService {
         dto.setPrice(course.getPrice());
         dto.setIsPublished(course.getIsPublished());
 
-        // Безопасная обработка категории
         if (course.getCategory() != null) {
             dto.setCategoryId(course.getCategory().getId());
             dto.setCategoryName(course.getCategory().getName());
@@ -507,7 +426,6 @@ public class CourseService {
     private CourseDTO convertToDetailedDTO(Course course) {
         CourseDTO dto = convertToDTO(course);
 
-        // Добавляем модули с уроками
         if (course.getModules() != null) {
             dto.setModules(course.getModules().stream().map(module -> {
                 ModuleDTO moduleDTO = new ModuleDTO();

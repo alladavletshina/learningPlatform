@@ -1,10 +1,9 @@
-package com.example.learningplatform.config;
+package com.example.learningplatform.service;
 
 import com.example.learningplatform.entity.User;
 import com.example.learningplatform.entity.enums.UserRole;
 import com.example.learningplatform.exception.ResourceNotFoundException;
 import com.example.learningplatform.repository.UserRepository;
-import com.example.learningplatform.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

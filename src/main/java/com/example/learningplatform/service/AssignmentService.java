@@ -47,7 +47,6 @@ public class AssignmentService {
         User student = userRepository.findById(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
 
-        // Проверяем, не отправлял ли студент уже решение
         submissionRepository.findByStudentIdAndAssignmentId(studentId, assignmentId)
                 .ifPresent(submission -> {
                     throw new IllegalArgumentException("Student has already submitted this assignment");

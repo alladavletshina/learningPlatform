@@ -45,7 +45,6 @@ public class QuizService {
 
         Quiz savedQuiz = quizRepository.save(quiz);
 
-        // Создаем вопросы и варианты ответов
         for (CreateQuestionRequest questionRequest : request.getQuestions()) {
             Question question = new Question();
             question.setQuiz(savedQuiz);
@@ -94,12 +93,11 @@ public class QuizService {
         User student = userRepository.findById(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + studentId));
 
-        // Проверяем, не проходил ли студент уже этот тест
+
         if (quizSubmissionRepository.findByStudentIdAndQuizId(studentId, quizId).isPresent()) {
             throw new IllegalArgumentException("Student has already taken this quiz");
         }
 
-        // Загружаем вопросы и варианты ответов для подсчета баллов
         List<Question> questions = questionRepository.findByQuizId(quizId);
         Map<Long, Question> questionMap = new HashMap<>();
         Map<Long, List<AnswerOption>> questionOptionsMap = new HashMap<>();
@@ -110,7 +108,6 @@ public class QuizService {
             questionOptionsMap.put(question.getId(), options);
         }
 
-        // Вычисляем результат
         int score = calculateScore(questionMap, questionOptionsMap, answers);
 
         QuizSubmission submission = new QuizSubmission();
@@ -151,10 +148,10 @@ public class QuizService {
         List<Long> correctOptionIds = options.stream()
                 .filter(AnswerOption::getIsCorrect)
                 .map(AnswerOption::getId)
-                .collect(Collectors.toList());
+                .toList();
 
-        return selectedOptionIds.containsAll(correctOptionIds) &&
-                correctOptionIds.containsAll(selectedOptionIds);
+        return new HashSet<>(selectedOptionIds).containsAll(correctOptionIds) &&
+                new HashSet<>(correctOptionIds).containsAll(selectedOptionIds);
     }
 
     @Transactional(readOnly = true)
@@ -182,12 +179,11 @@ public class QuizService {
         Quiz quiz = quizRepository.findById(quizId)
                 .orElseThrow(() -> new ResourceNotFoundException("Quiz not found with id: " + quizId));
 
-        // Проверяем, есть ли уже отправленные решения
+
         if (!quizSubmissionRepository.findByQuizId(quizId).isEmpty()) {
             throw new IllegalStateException("Cannot delete quiz that has submissions");
         }
 
-        // Удаляем варианты ответов, вопросы и затем тест
         List<Question> questions = questionRepository.findByQuizId(quizId);
         for (Question question : questions) {
             answerOptionRepository.deleteByQuestionId(question.getId());
@@ -198,7 +194,6 @@ public class QuizService {
         log.info("Deleted quiz with id: {}", quizId);
     }
 
-    // Простые конвертеры без ленивой загрузки
     private QuizDTO convertToSimpleDTO(Quiz quiz) {
         QuizDTO dto = new QuizDTO();
         dto.setId(quiz.getId());
@@ -280,7 +275,7 @@ public class QuizService {
     }
 
     public QuizSubmissionDTO submitQuiz(Long quizId, Long studentId, Map<Long, Long> answers) {
-        // Конвертируем Map<Long, Long> в Map<Long, List<Long>> для совместимости
+
         Map<Long, List<Long>> convertedAnswers = new HashMap<>();
         for (Map.Entry<Long, Long> entry : answers.entrySet()) {
             convertedAnswers.put(entry.getKey(), List.of(entry.getValue()));

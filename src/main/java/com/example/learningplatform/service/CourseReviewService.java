@@ -34,13 +34,9 @@ public class CourseReviewService {
         Course course = courseRepository.findById(request.getCourseId())
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + request.getCourseId()));
 
-        // Проверяем, не оставлял ли студент уже отзыв на этот курс
         if (courseReviewRepository.existsByStudentIdAndCourseId(studentId, request.getCourseId())) {
             throw new IllegalArgumentException("Student has already reviewed this course");
         }
-
-        // Проверяем, записан ли студент на курс
-        // Можно добавить проверку через EnrollmentRepository
 
         CourseReview review = new CourseReview();
         review.setStudent(student);
